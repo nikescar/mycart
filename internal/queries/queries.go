@@ -4,11 +4,14 @@ import (
 	"database/sql"
 	"embed"
 
-	"github.com/shurco/mycart/internal/base"
+	"github.com/shurco/mycart/db/migrations"
+	"github.com/shurco/mycart/internal/database"
+	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
 
 var db *Base
+var dbAdapter database.Database
 
 // Define the structure 'Base' that aggregates various queries related to different modules like
 // settings, authentication, installation, pages, products, and cart management.
@@ -23,22 +26,44 @@ type Base struct {
 
 // New initializes the application's database and returns an error if any occurs during the process.
 // It takes an 'embed.FS' which represents the file system intended to be used with embedded files.
-func New(embed embed.FS) (err error) {
-	var sqlite *sql.DB
-	sqlite, err = base.New("./lc_base/data.db", embed)
+// This now supports both SQLite and PostgreSQL based on configuration.
+func New(migrationsFS embed.FS) (err error) {
+	// Load database configuration from environment
+	cfg, err := database.LoadConfig()
 	if err != nil {
-		return
+		return err
 	}
 
-	db = &Base{
-		AuthQueries:    AuthQueries{DB: sqlite},
-		InstallQueries: InstallQueries{DB: sqlite},
-		SettingQueries: SettingQueries{DB: sqlite},
-		PageQueries:    PageQueries{DB: sqlite},
-		ProductQueries: ProductQueries{DB: sqlite},
-		CartQueries:    CartQueries{DB: sqlite},
+	// For backward compatibility, if no config is set, default to SQLite
+	if cfg.Type == "" {
+		cfg.Type = "sqlite"
+		cfg.SQLite.Path = "./lc_base/data.db"
 	}
-	return
+
+	// Connect to database with retry logic
+	dbAdapter, err = database.ConnectWithRetry(cfg)
+	if err != nil {
+		return err
+	}
+
+	// Run migrations
+	err = database.RunMigrations(dbAdapter.DB(), cfg.Type, migrations.Embed())
+	if err != nil {
+		dbAdapter.Close()
+		return err
+	}
+
+	// Initialize the Base struct with the underlying *sql.DB
+	sqlDB := dbAdapter.DB()
+	db = &Base{
+		AuthQueries:    AuthQueries{DB: sqlDB},
+		InstallQueries: InstallQueries{DB: sqlDB},
+		SettingQueries: SettingQueries{DB: sqlDB},
+		PageQueries:    PageQueries{DB: sqlDB},
+		ProductQueries: ProductQueries{DB: sqlDB},
+		CartQueries:    CartQueries{DB: sqlDB},
+	}
+	return nil
 }
 
 // NewFromDB initializes Base from an existing *sql.DB (e.g. in-memory SQLite for tests).
@@ -57,4 +82,17 @@ func NewFromDB(sqlite *sql.DB) {
 // Use New() to initialize the database before calling DB().
 func DB() *Base {
 	return db
+}
+
+// Adapter returns the underlying database adapter for advanced operations.
+func Adapter() database.Database {
+	return dbAdapter
+}
+
+// Close closes the database connection.
+func Close() error {
+	if dbAdapter != nil {
+		return dbAdapter.Close()
+	}
+	return nil
 }

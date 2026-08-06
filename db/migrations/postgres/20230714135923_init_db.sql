@@ -37,7 +37,7 @@ CREATE INDEX idx_session_key ON session (key);
 CREATE TABLE subdomain (
 	id    TEXT PRIMARY KEY NOT NULL,
 	name  TEXT UNIQUE NOT NULL,
-	desc  TEXT DEFAULT NULL
+	"desc"  TEXT DEFAULT NULL
 );
 CREATE INDEX idx_subdomain_name ON subdomain (name);
 
@@ -46,7 +46,7 @@ CREATE TABLE page (
 	name 			TEXT NOT NULL,
 	slug 			TEXT UNIQUE NOT NULL,
 	content 	TEXT DEFAULT NULL,
-	position  TEXT NOT NULL CHECK (position == 'header' OR position == 'footer'),
+	position  TEXT NOT NULL CHECK (position = 'header' OR position = 'footer'),
 	active    BOOLEAN DEFAULT FALSE NOT NULL,
 	created 	TIMESTAMPTZ DEFAULT NOW(),
 	updated 	TIMESTAMPTZ
@@ -62,12 +62,12 @@ INSERT INTO page (id, name, slug, position, content, active) VALUES
 CREATE TABLE product (
 	id         TEXT PRIMARY KEY NOT NULL,
 	name       TEXT NOT NULL,
-	desc       TEXT NOT NULL,
+	"desc"       TEXT NOT NULL,
 	slug       TEXT UNIQUE NOT NULL,
-	amount     NUMERC NOT NULL,
-	metadata   JSON DEFAULT '[]' NOT NULL,
-	attribute  JSON DEFAULT '[]' NOT NULL,
-	digital    TEXT CHECK (digital == 'file' OR digital == 'data' OR digital == 'api'),
+	amount     NUMERIC NOT NULL,
+	metadata   JSONB DEFAULT '[]' NOT NULL,
+	attribute  JSONB DEFAULT '[]' NOT NULL,
+	digital    TEXT CHECK (digital = 'file' OR digital = 'data' OR digital = 'api'),
 	active     BOOLEAN DEFAULT TRUE NOT NULL,
 	deleted    BOOLEAN DEFAULT FALSE NOT NULL,
 	created    TIMESTAMPTZ DEFAULT NOW(),
@@ -110,11 +110,11 @@ CREATE TABLE cart (
 	id              TEXT PRIMARY KEY NOT NULL,
 	email           TEXT DEFAULT NULL,
 	name            TEXT DEFAULT NULL,
-	amount_total    NUMERC NOT NULL,
+	amount_total    NUMERIC NOT NULL,
 	currency        TEXT NOT NULL,
 	payment_id      TEXT DEFAULT NULL,
 	payment_status  TEXT DEFAULT NULL,
-	cart            JSON DEFAULT '[]' NOT NULL,
+	cart            JSONB DEFAULT '[]' NOT NULL,
 	created         TIMESTAMPTZ DEFAULT NOW(),
 	updated         TIMESTAMPTZ
 );

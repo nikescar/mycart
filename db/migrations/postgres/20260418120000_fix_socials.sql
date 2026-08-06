@@ -11,8 +11,8 @@
 -- Re-inserting here with fresh, unique ids. The keys themselves are
 -- `UNIQUE`, so `INSERT OR IGNORE` is still safe on installations that
 -- somehow already contain them (e.g. hand-fixed by an operator).
-INSERT OR IGNORE INTO setting VALUES ('yt1oK0n7cN6m9pB', 'social_youtube', '');
-INSERT OR IGNORE INTO setting VALUES ('oT8hZ2q9vS3rW1L', 'social_other', '');
+INSERT INTO setting VALUES ('yt1oK0n7cN6m9pB', 'social_youtube', '');
+INSERT INTO setting VALUES ('oT8hZ2q9vS3rW1L', 'social_other', '');
 -- +goose StatementEnd
 
 -- +goose Down

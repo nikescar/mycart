@@ -9,14 +9,14 @@ INSERT INTO setting VALUES ('FxfwJFu42oDiE8v', 'spectrocoin_merchant_id', '');
 INSERT INTO setting VALUES ('UXMw8hijBLb7K59', 'spectrocoin_project_id', '');
 INSERT INTO setting VALUES ('cPw4L82dsCLFKxr', 'spectrocoin_private_key', '');
 INSERT INTO setting VALUES ('pF1gvf3AAiTL8uN', 'mail_letter_payment', '{"subject":"New payment transaction","text":"Hello,\nWe would like to inform you about the registration of a new payment transaction on the [{{.Site_Name}}] website.\n\nTransaction information:\nAmount payment: {{.Amount_Payment}}\nPayment url: {{.Payment_URL}}\n\nBest regards,","html":""}');
-ALTER TABLE cart DROP COLUMN "name";
-ALTER TABLE cart ADD COLUMN "payment_system" TEXT NOT NULL DEFAULT "";
+ALTER TABLE cart DROP COLUMN name;
+ALTER TABLE cart ADD COLUMN payment_system TEXT NOT NULL DEFAULT '';
 -- +goose StatementEnd
 
 -- +goose Down
 -- +goose StatementBegin
-ALTER TABLE cart DROP COLUMN "payment_system";
-ALTER TABLE cart ADD COLUMN "name" TEXT DEFAULT NULL;
+ALTER TABLE cart DROP COLUMN payment_system;
+ALTER TABLE cart ADD COLUMN name TEXT DEFAULT NULL;
 DELETE FROM setting WHERE id = 'pF1gvf3AAiTL8uN';
 DELETE FROM setting WHERE id = 'cPw4L82dsCLFKxr';
 DELETE FROM setting WHERE id = 'UXMw8hijBLb7K59';

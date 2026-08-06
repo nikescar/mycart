@@ -6,15 +6,21 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
 )
 
 type Querier interface {
 	BulkUpdateSettings(ctx context.Context, arg BulkUpdateSettingsParams) error
+	CleanupExpiredSessions(ctx context.Context, expires sql.NullInt64) error
 	CreateSetting(ctx context.Context, arg CreateSettingParams) error
+	DeleteSession(ctx context.Context, key string) error
 	DeleteSettingByKey(ctx context.Context, key string) error
+	GetSession(ctx context.Context, key string) (Session, error)
 	GetSettingByID(ctx context.Context, id string) (Setting, error)
 	GetSettingByKey(ctx context.Context, key string) (Setting, error)
+	ListActiveSessions(ctx context.Context, expires sql.NullInt64) ([]Session, error)
 	ListAllSettings(ctx context.Context) ([]Setting, error)
+	SetSession(ctx context.Context, arg SetSessionParams) error
 	UpdateSettingByID(ctx context.Context, arg UpdateSettingByIDParams) error
 	UpdateSettingByKey(ctx context.Context, arg UpdateSettingByKeyParams) error
 }

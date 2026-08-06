@@ -11,19 +11,27 @@ import (
 
 type Querier interface {
 	BulkUpdateSettings(ctx context.Context, arg BulkUpdateSettingsParams) error
+	CheckSlugExists(ctx context.Context, arg CheckSlugExistsParams) (int64, error)
 	CleanupExpiredSessions(ctx context.Context, expires sql.NullInt64) error
+	CreatePage(ctx context.Context, arg CreatePageParams) error
 	CreateSetting(ctx context.Context, arg CreateSettingParams) error
+	DeletePage(ctx context.Context, id string) error
 	DeleteSession(ctx context.Context, key string) error
 	DeleteSettingByKey(ctx context.Context, key string) error
 	GetAuthCredentials(ctx context.Context) (GetAuthCredentialsRow, error)
 	GetEmailSetting(ctx context.Context) (Setting, error)
+	GetPageByID(ctx context.Context, id string) (Page, error)
+	GetPageBySlug(ctx context.Context, slug string) (Page, error)
 	GetPasswordSetting(ctx context.Context) (Setting, error)
 	GetSession(ctx context.Context, key string) (Session, error)
 	GetSettingByID(ctx context.Context, id string) (Setting, error)
 	GetSettingByKey(ctx context.Context, key string) (Setting, error)
 	ListActiveSessions(ctx context.Context, expires sql.NullInt64) ([]Session, error)
 	ListAllSettings(ctx context.Context) ([]Setting, error)
+	ListPages(ctx context.Context, active bool) ([]Page, error)
+	ListPagesByPosition(ctx context.Context, arg ListPagesByPositionParams) ([]Page, error)
 	SetSession(ctx context.Context, arg SetSessionParams) error
+	UpdatePage(ctx context.Context, arg UpdatePageParams) error
 	UpdatePassword(ctx context.Context, value sql.NullString) error
 	UpdateSettingByID(ctx context.Context, arg UpdateSettingByIDParams) error
 	UpdateSettingByKey(ctx context.Context, arg UpdateSettingByKeyParams) error

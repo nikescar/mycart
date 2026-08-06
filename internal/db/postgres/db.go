@@ -24,29 +24,313 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.countCartsStmt, err = db.PrepareContext(ctx, countCarts); err != nil {
+		return nil, fmt.Errorf("error preparing query CountCarts: %w", err)
+	}
+	if q.countPagesStmt, err = db.PrepareContext(ctx, countPages); err != nil {
+		return nil, fmt.Errorf("error preparing query CountPages: %w", err)
+	}
+	if q.countProductsStmt, err = db.PrepareContext(ctx, countProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query CountProducts: %w", err)
+	}
+	if q.createCartStmt, err = db.PrepareContext(ctx, createCart); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateCart: %w", err)
+	}
+	if q.createDigitalDataStmt, err = db.PrepareContext(ctx, createDigitalData); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateDigitalData: %w", err)
+	}
+	if q.createDigitalFileStmt, err = db.PrepareContext(ctx, createDigitalFile); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateDigitalFile: %w", err)
+	}
+	if q.createPageStmt, err = db.PrepareContext(ctx, createPage); err != nil {
+		return nil, fmt.Errorf("error preparing query CreatePage: %w", err)
+	}
+	if q.createProductStmt, err = db.PrepareContext(ctx, createProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProduct: %w", err)
+	}
+	if q.createProductImageStmt, err = db.PrepareContext(ctx, createProductImage); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductImage: %w", err)
+	}
+	if q.createSessionStmt, err = db.PrepareContext(ctx, createSession); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateSession: %w", err)
+	}
 	if q.createSettingStmt, err = db.PrepareContext(ctx, createSetting); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateSetting: %w", err)
+	}
+	if q.createSubdomainStmt, err = db.PrepareContext(ctx, createSubdomain); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateSubdomain: %w", err)
+	}
+	if q.deleteCartStmt, err = db.PrepareContext(ctx, deleteCart); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteCart: %w", err)
+	}
+	if q.deleteDigitalDataStmt, err = db.PrepareContext(ctx, deleteDigitalData); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteDigitalData: %w", err)
+	}
+	if q.deleteDigitalDataByProductStmt, err = db.PrepareContext(ctx, deleteDigitalDataByProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteDigitalDataByProduct: %w", err)
+	}
+	if q.deleteDigitalFileStmt, err = db.PrepareContext(ctx, deleteDigitalFile); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteDigitalFile: %w", err)
+	}
+	if q.deleteDigitalFilesStmt, err = db.PrepareContext(ctx, deleteDigitalFiles); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteDigitalFiles: %w", err)
+	}
+	if q.deleteExpiredSessionsStmt, err = db.PrepareContext(ctx, deleteExpiredSessions); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteExpiredSessions: %w", err)
+	}
+	if q.deletePageStmt, err = db.PrepareContext(ctx, deletePage); err != nil {
+		return nil, fmt.Errorf("error preparing query DeletePage: %w", err)
+	}
+	if q.deleteProductStmt, err = db.PrepareContext(ctx, deleteProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProduct: %w", err)
+	}
+	if q.deleteProductImageStmt, err = db.PrepareContext(ctx, deleteProductImage); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductImage: %w", err)
+	}
+	if q.deleteProductImagesStmt, err = db.PrepareContext(ctx, deleteProductImages); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductImages: %w", err)
+	}
+	if q.deleteSessionStmt, err = db.PrepareContext(ctx, deleteSession); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteSession: %w", err)
 	}
 	if q.deleteSettingStmt, err = db.PrepareContext(ctx, deleteSetting); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteSetting: %w", err)
 	}
+	if q.deleteSubdomainStmt, err = db.PrepareContext(ctx, deleteSubdomain); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteSubdomain: %w", err)
+	}
+	if q.getCartStmt, err = db.PrepareContext(ctx, getCart); err != nil {
+		return nil, fmt.Errorf("error preparing query GetCart: %w", err)
+	}
+	if q.getDigitalDataStmt, err = db.PrepareContext(ctx, getDigitalData); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDigitalData: %w", err)
+	}
+	if q.getDigitalDataByProductStmt, err = db.PrepareContext(ctx, getDigitalDataByProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDigitalDataByProduct: %w", err)
+	}
+	if q.getDigitalFileStmt, err = db.PrepareContext(ctx, getDigitalFile); err != nil {
+		return nil, fmt.Errorf("error preparing query GetDigitalFile: %w", err)
+	}
+	if q.getPageByIDStmt, err = db.PrepareContext(ctx, getPageByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPageByID: %w", err)
+	}
+	if q.getPageBySlugStmt, err = db.PrepareContext(ctx, getPageBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPageBySlug: %w", err)
+	}
+	if q.getProductByIDStmt, err = db.PrepareContext(ctx, getProductByID); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductByID: %w", err)
+	}
+	if q.getProductBySlugStmt, err = db.PrepareContext(ctx, getProductBySlug); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductBySlug: %w", err)
+	}
+	if q.getProductImageStmt, err = db.PrepareContext(ctx, getProductImage); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductImage: %w", err)
+	}
+	if q.getSessionStmt, err = db.PrepareContext(ctx, getSession); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSession: %w", err)
+	}
 	if q.getSettingByKeyStmt, err = db.PrepareContext(ctx, getSettingByKey); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSettingByKey: %w", err)
+	}
+	if q.getSubdomainStmt, err = db.PrepareContext(ctx, getSubdomain); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSubdomain: %w", err)
+	}
+	if q.getSubdomainByNameStmt, err = db.PrepareContext(ctx, getSubdomainByName); err != nil {
+		return nil, fmt.Errorf("error preparing query GetSubdomainByName: %w", err)
+	}
+	if q.listActiveProductsStmt, err = db.PrepareContext(ctx, listActiveProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListActiveProducts: %w", err)
+	}
+	if q.listCartsStmt, err = db.PrepareContext(ctx, listCarts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListCarts: %w", err)
+	}
+	if q.listDigitalDataByCartStmt, err = db.PrepareContext(ctx, listDigitalDataByCart); err != nil {
+		return nil, fmt.Errorf("error preparing query ListDigitalDataByCart: %w", err)
+	}
+	if q.listDigitalFilesStmt, err = db.PrepareContext(ctx, listDigitalFiles); err != nil {
+		return nil, fmt.Errorf("error preparing query ListDigitalFiles: %w", err)
+	}
+	if q.listPagesStmt, err = db.PrepareContext(ctx, listPages); err != nil {
+		return nil, fmt.Errorf("error preparing query ListPages: %w", err)
+	}
+	if q.listPagesByPositionStmt, err = db.PrepareContext(ctx, listPagesByPosition); err != nil {
+		return nil, fmt.Errorf("error preparing query ListPagesByPosition: %w", err)
+	}
+	if q.listProductImagesStmt, err = db.PrepareContext(ctx, listProductImages); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductImages: %w", err)
+	}
+	if q.listProductsStmt, err = db.PrepareContext(ctx, listProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProducts: %w", err)
 	}
 	if q.listSettingsStmt, err = db.PrepareContext(ctx, listSettings); err != nil {
 		return nil, fmt.Errorf("error preparing query ListSettings: %w", err)
 	}
+	if q.listSubdomainsStmt, err = db.PrepareContext(ctx, listSubdomains); err != nil {
+		return nil, fmt.Errorf("error preparing query ListSubdomains: %w", err)
+	}
+	if q.pageExistsStmt, err = db.PrepareContext(ctx, pageExists); err != nil {
+		return nil, fmt.Errorf("error preparing query PageExists: %w", err)
+	}
+	if q.productExistsStmt, err = db.PrepareContext(ctx, productExists); err != nil {
+		return nil, fmt.Errorf("error preparing query ProductExists: %w", err)
+	}
+	if q.softDeleteProductStmt, err = db.PrepareContext(ctx, softDeleteProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query SoftDeleteProduct: %w", err)
+	}
+	if q.subdomainExistsStmt, err = db.PrepareContext(ctx, subdomainExists); err != nil {
+		return nil, fmt.Errorf("error preparing query SubdomainExists: %w", err)
+	}
+	if q.updateCartStmt, err = db.PrepareContext(ctx, updateCart); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCart: %w", err)
+	}
+	if q.updateCartPaymentStatusStmt, err = db.PrepareContext(ctx, updateCartPaymentStatus); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateCartPaymentStatus: %w", err)
+	}
+	if q.updateDigitalDataStmt, err = db.PrepareContext(ctx, updateDigitalData); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateDigitalData: %w", err)
+	}
+	if q.updatePageStmt, err = db.PrepareContext(ctx, updatePage); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePage: %w", err)
+	}
+	if q.updatePageActiveStmt, err = db.PrepareContext(ctx, updatePageActive); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePageActive: %w", err)
+	}
+	if q.updatePageContentStmt, err = db.PrepareContext(ctx, updatePageContent); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdatePageContent: %w", err)
+	}
+	if q.updateProductStmt, err = db.PrepareContext(ctx, updateProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProduct: %w", err)
+	}
+	if q.updateProductActiveStmt, err = db.PrepareContext(ctx, updateProductActive); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductActive: %w", err)
+	}
+	if q.updateSessionStmt, err = db.PrepareContext(ctx, updateSession); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateSession: %w", err)
+	}
 	if q.updateSettingStmt, err = db.PrepareContext(ctx, updateSetting); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateSetting: %w", err)
+	}
+	if q.updateSubdomainStmt, err = db.PrepareContext(ctx, updateSubdomain); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateSubdomain: %w", err)
 	}
 	return &q, nil
 }
 
 func (q *Queries) Close() error {
 	var err error
+	if q.countCartsStmt != nil {
+		if cerr := q.countCartsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countCartsStmt: %w", cerr)
+		}
+	}
+	if q.countPagesStmt != nil {
+		if cerr := q.countPagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countPagesStmt: %w", cerr)
+		}
+	}
+	if q.countProductsStmt != nil {
+		if cerr := q.countProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countProductsStmt: %w", cerr)
+		}
+	}
+	if q.createCartStmt != nil {
+		if cerr := q.createCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createCartStmt: %w", cerr)
+		}
+	}
+	if q.createDigitalDataStmt != nil {
+		if cerr := q.createDigitalDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createDigitalDataStmt: %w", cerr)
+		}
+	}
+	if q.createDigitalFileStmt != nil {
+		if cerr := q.createDigitalFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createDigitalFileStmt: %w", cerr)
+		}
+	}
+	if q.createPageStmt != nil {
+		if cerr := q.createPageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createPageStmt: %w", cerr)
+		}
+	}
+	if q.createProductStmt != nil {
+		if cerr := q.createProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductStmt: %w", cerr)
+		}
+	}
+	if q.createProductImageStmt != nil {
+		if cerr := q.createProductImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductImageStmt: %w", cerr)
+		}
+	}
+	if q.createSessionStmt != nil {
+		if cerr := q.createSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createSessionStmt: %w", cerr)
+		}
+	}
 	if q.createSettingStmt != nil {
 		if cerr := q.createSettingStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createSettingStmt: %w", cerr)
+		}
+	}
+	if q.createSubdomainStmt != nil {
+		if cerr := q.createSubdomainStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createSubdomainStmt: %w", cerr)
+		}
+	}
+	if q.deleteCartStmt != nil {
+		if cerr := q.deleteCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteCartStmt: %w", cerr)
+		}
+	}
+	if q.deleteDigitalDataStmt != nil {
+		if cerr := q.deleteDigitalDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteDigitalDataStmt: %w", cerr)
+		}
+	}
+	if q.deleteDigitalDataByProductStmt != nil {
+		if cerr := q.deleteDigitalDataByProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteDigitalDataByProductStmt: %w", cerr)
+		}
+	}
+	if q.deleteDigitalFileStmt != nil {
+		if cerr := q.deleteDigitalFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteDigitalFileStmt: %w", cerr)
+		}
+	}
+	if q.deleteDigitalFilesStmt != nil {
+		if cerr := q.deleteDigitalFilesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteDigitalFilesStmt: %w", cerr)
+		}
+	}
+	if q.deleteExpiredSessionsStmt != nil {
+		if cerr := q.deleteExpiredSessionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteExpiredSessionsStmt: %w", cerr)
+		}
+	}
+	if q.deletePageStmt != nil {
+		if cerr := q.deletePageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deletePageStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductStmt != nil {
+		if cerr := q.deleteProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductImageStmt != nil {
+		if cerr := q.deleteProductImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductImageStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductImagesStmt != nil {
+		if cerr := q.deleteProductImagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductImagesStmt: %w", cerr)
+		}
+	}
+	if q.deleteSessionStmt != nil {
+		if cerr := q.deleteSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteSessionStmt: %w", cerr)
 		}
 	}
 	if q.deleteSettingStmt != nil {
@@ -54,9 +338,114 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteSettingStmt: %w", cerr)
 		}
 	}
+	if q.deleteSubdomainStmt != nil {
+		if cerr := q.deleteSubdomainStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteSubdomainStmt: %w", cerr)
+		}
+	}
+	if q.getCartStmt != nil {
+		if cerr := q.getCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getCartStmt: %w", cerr)
+		}
+	}
+	if q.getDigitalDataStmt != nil {
+		if cerr := q.getDigitalDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDigitalDataStmt: %w", cerr)
+		}
+	}
+	if q.getDigitalDataByProductStmt != nil {
+		if cerr := q.getDigitalDataByProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDigitalDataByProductStmt: %w", cerr)
+		}
+	}
+	if q.getDigitalFileStmt != nil {
+		if cerr := q.getDigitalFileStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getDigitalFileStmt: %w", cerr)
+		}
+	}
+	if q.getPageByIDStmt != nil {
+		if cerr := q.getPageByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPageByIDStmt: %w", cerr)
+		}
+	}
+	if q.getPageBySlugStmt != nil {
+		if cerr := q.getPageBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPageBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getProductByIDStmt != nil {
+		if cerr := q.getProductByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductByIDStmt: %w", cerr)
+		}
+	}
+	if q.getProductBySlugStmt != nil {
+		if cerr := q.getProductBySlugStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductBySlugStmt: %w", cerr)
+		}
+	}
+	if q.getProductImageStmt != nil {
+		if cerr := q.getProductImageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductImageStmt: %w", cerr)
+		}
+	}
+	if q.getSessionStmt != nil {
+		if cerr := q.getSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSessionStmt: %w", cerr)
+		}
+	}
 	if q.getSettingByKeyStmt != nil {
 		if cerr := q.getSettingByKeyStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getSettingByKeyStmt: %w", cerr)
+		}
+	}
+	if q.getSubdomainStmt != nil {
+		if cerr := q.getSubdomainStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSubdomainStmt: %w", cerr)
+		}
+	}
+	if q.getSubdomainByNameStmt != nil {
+		if cerr := q.getSubdomainByNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getSubdomainByNameStmt: %w", cerr)
+		}
+	}
+	if q.listActiveProductsStmt != nil {
+		if cerr := q.listActiveProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listActiveProductsStmt: %w", cerr)
+		}
+	}
+	if q.listCartsStmt != nil {
+		if cerr := q.listCartsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listCartsStmt: %w", cerr)
+		}
+	}
+	if q.listDigitalDataByCartStmt != nil {
+		if cerr := q.listDigitalDataByCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listDigitalDataByCartStmt: %w", cerr)
+		}
+	}
+	if q.listDigitalFilesStmt != nil {
+		if cerr := q.listDigitalFilesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listDigitalFilesStmt: %w", cerr)
+		}
+	}
+	if q.listPagesStmt != nil {
+		if cerr := q.listPagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listPagesStmt: %w", cerr)
+		}
+	}
+	if q.listPagesByPositionStmt != nil {
+		if cerr := q.listPagesByPositionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listPagesByPositionStmt: %w", cerr)
+		}
+	}
+	if q.listProductImagesStmt != nil {
+		if cerr := q.listProductImagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductImagesStmt: %w", cerr)
+		}
+	}
+	if q.listProductsStmt != nil {
+		if cerr := q.listProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductsStmt: %w", cerr)
 		}
 	}
 	if q.listSettingsStmt != nil {
@@ -64,9 +453,84 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listSettingsStmt: %w", cerr)
 		}
 	}
+	if q.listSubdomainsStmt != nil {
+		if cerr := q.listSubdomainsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listSubdomainsStmt: %w", cerr)
+		}
+	}
+	if q.pageExistsStmt != nil {
+		if cerr := q.pageExistsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing pageExistsStmt: %w", cerr)
+		}
+	}
+	if q.productExistsStmt != nil {
+		if cerr := q.productExistsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing productExistsStmt: %w", cerr)
+		}
+	}
+	if q.softDeleteProductStmt != nil {
+		if cerr := q.softDeleteProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing softDeleteProductStmt: %w", cerr)
+		}
+	}
+	if q.subdomainExistsStmt != nil {
+		if cerr := q.subdomainExistsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing subdomainExistsStmt: %w", cerr)
+		}
+	}
+	if q.updateCartStmt != nil {
+		if cerr := q.updateCartStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCartStmt: %w", cerr)
+		}
+	}
+	if q.updateCartPaymentStatusStmt != nil {
+		if cerr := q.updateCartPaymentStatusStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateCartPaymentStatusStmt: %w", cerr)
+		}
+	}
+	if q.updateDigitalDataStmt != nil {
+		if cerr := q.updateDigitalDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateDigitalDataStmt: %w", cerr)
+		}
+	}
+	if q.updatePageStmt != nil {
+		if cerr := q.updatePageStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePageStmt: %w", cerr)
+		}
+	}
+	if q.updatePageActiveStmt != nil {
+		if cerr := q.updatePageActiveStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePageActiveStmt: %w", cerr)
+		}
+	}
+	if q.updatePageContentStmt != nil {
+		if cerr := q.updatePageContentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updatePageContentStmt: %w", cerr)
+		}
+	}
+	if q.updateProductStmt != nil {
+		if cerr := q.updateProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductStmt: %w", cerr)
+		}
+	}
+	if q.updateProductActiveStmt != nil {
+		if cerr := q.updateProductActiveStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductActiveStmt: %w", cerr)
+		}
+	}
+	if q.updateSessionStmt != nil {
+		if cerr := q.updateSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateSessionStmt: %w", cerr)
+		}
+	}
 	if q.updateSettingStmt != nil {
 		if cerr := q.updateSettingStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateSettingStmt: %w", cerr)
+		}
+	}
+	if q.updateSubdomainStmt != nil {
+		if cerr := q.updateSubdomainStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateSubdomainStmt: %w", cerr)
 		}
 	}
 	return err
@@ -106,23 +570,139 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                  DBTX
-	tx                  *sql.Tx
-	createSettingStmt   *sql.Stmt
-	deleteSettingStmt   *sql.Stmt
-	getSettingByKeyStmt *sql.Stmt
-	listSettingsStmt    *sql.Stmt
-	updateSettingStmt   *sql.Stmt
+	db                             DBTX
+	tx                             *sql.Tx
+	countCartsStmt                 *sql.Stmt
+	countPagesStmt                 *sql.Stmt
+	countProductsStmt              *sql.Stmt
+	createCartStmt                 *sql.Stmt
+	createDigitalDataStmt          *sql.Stmt
+	createDigitalFileStmt          *sql.Stmt
+	createPageStmt                 *sql.Stmt
+	createProductStmt              *sql.Stmt
+	createProductImageStmt         *sql.Stmt
+	createSessionStmt              *sql.Stmt
+	createSettingStmt              *sql.Stmt
+	createSubdomainStmt            *sql.Stmt
+	deleteCartStmt                 *sql.Stmt
+	deleteDigitalDataStmt          *sql.Stmt
+	deleteDigitalDataByProductStmt *sql.Stmt
+	deleteDigitalFileStmt          *sql.Stmt
+	deleteDigitalFilesStmt         *sql.Stmt
+	deleteExpiredSessionsStmt      *sql.Stmt
+	deletePageStmt                 *sql.Stmt
+	deleteProductStmt              *sql.Stmt
+	deleteProductImageStmt         *sql.Stmt
+	deleteProductImagesStmt        *sql.Stmt
+	deleteSessionStmt              *sql.Stmt
+	deleteSettingStmt              *sql.Stmt
+	deleteSubdomainStmt            *sql.Stmt
+	getCartStmt                    *sql.Stmt
+	getDigitalDataStmt             *sql.Stmt
+	getDigitalDataByProductStmt    *sql.Stmt
+	getDigitalFileStmt             *sql.Stmt
+	getPageByIDStmt                *sql.Stmt
+	getPageBySlugStmt              *sql.Stmt
+	getProductByIDStmt             *sql.Stmt
+	getProductBySlugStmt           *sql.Stmt
+	getProductImageStmt            *sql.Stmt
+	getSessionStmt                 *sql.Stmt
+	getSettingByKeyStmt            *sql.Stmt
+	getSubdomainStmt               *sql.Stmt
+	getSubdomainByNameStmt         *sql.Stmt
+	listActiveProductsStmt         *sql.Stmt
+	listCartsStmt                  *sql.Stmt
+	listDigitalDataByCartStmt      *sql.Stmt
+	listDigitalFilesStmt           *sql.Stmt
+	listPagesStmt                  *sql.Stmt
+	listPagesByPositionStmt        *sql.Stmt
+	listProductImagesStmt          *sql.Stmt
+	listProductsStmt               *sql.Stmt
+	listSettingsStmt               *sql.Stmt
+	listSubdomainsStmt             *sql.Stmt
+	pageExistsStmt                 *sql.Stmt
+	productExistsStmt              *sql.Stmt
+	softDeleteProductStmt          *sql.Stmt
+	subdomainExistsStmt            *sql.Stmt
+	updateCartStmt                 *sql.Stmt
+	updateCartPaymentStatusStmt    *sql.Stmt
+	updateDigitalDataStmt          *sql.Stmt
+	updatePageStmt                 *sql.Stmt
+	updatePageActiveStmt           *sql.Stmt
+	updatePageContentStmt          *sql.Stmt
+	updateProductStmt              *sql.Stmt
+	updateProductActiveStmt        *sql.Stmt
+	updateSessionStmt              *sql.Stmt
+	updateSettingStmt              *sql.Stmt
+	updateSubdomainStmt            *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                  tx,
-		tx:                  tx,
-		createSettingStmt:   q.createSettingStmt,
-		deleteSettingStmt:   q.deleteSettingStmt,
-		getSettingByKeyStmt: q.getSettingByKeyStmt,
-		listSettingsStmt:    q.listSettingsStmt,
-		updateSettingStmt:   q.updateSettingStmt,
+		db:                             tx,
+		tx:                             tx,
+		countCartsStmt:                 q.countCartsStmt,
+		countPagesStmt:                 q.countPagesStmt,
+		countProductsStmt:              q.countProductsStmt,
+		createCartStmt:                 q.createCartStmt,
+		createDigitalDataStmt:          q.createDigitalDataStmt,
+		createDigitalFileStmt:          q.createDigitalFileStmt,
+		createPageStmt:                 q.createPageStmt,
+		createProductStmt:              q.createProductStmt,
+		createProductImageStmt:         q.createProductImageStmt,
+		createSessionStmt:              q.createSessionStmt,
+		createSettingStmt:              q.createSettingStmt,
+		createSubdomainStmt:            q.createSubdomainStmt,
+		deleteCartStmt:                 q.deleteCartStmt,
+		deleteDigitalDataStmt:          q.deleteDigitalDataStmt,
+		deleteDigitalDataByProductStmt: q.deleteDigitalDataByProductStmt,
+		deleteDigitalFileStmt:          q.deleteDigitalFileStmt,
+		deleteDigitalFilesStmt:         q.deleteDigitalFilesStmt,
+		deleteExpiredSessionsStmt:      q.deleteExpiredSessionsStmt,
+		deletePageStmt:                 q.deletePageStmt,
+		deleteProductStmt:              q.deleteProductStmt,
+		deleteProductImageStmt:         q.deleteProductImageStmt,
+		deleteProductImagesStmt:        q.deleteProductImagesStmt,
+		deleteSessionStmt:              q.deleteSessionStmt,
+		deleteSettingStmt:              q.deleteSettingStmt,
+		deleteSubdomainStmt:            q.deleteSubdomainStmt,
+		getCartStmt:                    q.getCartStmt,
+		getDigitalDataStmt:             q.getDigitalDataStmt,
+		getDigitalDataByProductStmt:    q.getDigitalDataByProductStmt,
+		getDigitalFileStmt:             q.getDigitalFileStmt,
+		getPageByIDStmt:                q.getPageByIDStmt,
+		getPageBySlugStmt:              q.getPageBySlugStmt,
+		getProductByIDStmt:             q.getProductByIDStmt,
+		getProductBySlugStmt:           q.getProductBySlugStmt,
+		getProductImageStmt:            q.getProductImageStmt,
+		getSessionStmt:                 q.getSessionStmt,
+		getSettingByKeyStmt:            q.getSettingByKeyStmt,
+		getSubdomainStmt:               q.getSubdomainStmt,
+		getSubdomainByNameStmt:         q.getSubdomainByNameStmt,
+		listActiveProductsStmt:         q.listActiveProductsStmt,
+		listCartsStmt:                  q.listCartsStmt,
+		listDigitalDataByCartStmt:      q.listDigitalDataByCartStmt,
+		listDigitalFilesStmt:           q.listDigitalFilesStmt,
+		listPagesStmt:                  q.listPagesStmt,
+		listPagesByPositionStmt:        q.listPagesByPositionStmt,
+		listProductImagesStmt:          q.listProductImagesStmt,
+		listProductsStmt:               q.listProductsStmt,
+		listSettingsStmt:               q.listSettingsStmt,
+		listSubdomainsStmt:             q.listSubdomainsStmt,
+		pageExistsStmt:                 q.pageExistsStmt,
+		productExistsStmt:              q.productExistsStmt,
+		softDeleteProductStmt:          q.softDeleteProductStmt,
+		subdomainExistsStmt:            q.subdomainExistsStmt,
+		updateCartStmt:                 q.updateCartStmt,
+		updateCartPaymentStatusStmt:    q.updateCartPaymentStatusStmt,
+		updateDigitalDataStmt:          q.updateDigitalDataStmt,
+		updatePageStmt:                 q.updatePageStmt,
+		updatePageActiveStmt:           q.updatePageActiveStmt,
+		updatePageContentStmt:          q.updatePageContentStmt,
+		updateProductStmt:              q.updateProductStmt,
+		updateProductActiveStmt:        q.updateProductActiveStmt,
+		updateSessionStmt:              q.updateSessionStmt,
+		updateSettingStmt:              q.updateSettingStmt,
+		updateSubdomainStmt:            q.updateSubdomainStmt,
 	}
 }

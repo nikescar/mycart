@@ -11,28 +11,53 @@ import (
 
 type Querier interface {
 	BulkUpdateSettings(ctx context.Context, arg BulkUpdateSettingsParams) error
+	CheckProductSlugExists(ctx context.Context, arg CheckProductSlugExistsParams) (int64, error)
 	CheckSlugExists(ctx context.Context, arg CheckSlugExistsParams) (int64, error)
 	CleanupExpiredSessions(ctx context.Context, expires sql.NullInt64) error
+	CountActiveProducts(ctx context.Context) (int64, error)
+	CountAllProducts(ctx context.Context) (int64, error)
+	CreateDigitalData(ctx context.Context, arg CreateDigitalDataParams) error
+	CreateDigitalFile(ctx context.Context, arg CreateDigitalFileParams) error
 	CreatePage(ctx context.Context, arg CreatePageParams) error
+	CreateProduct(ctx context.Context, arg CreateProductParams) error
+	CreateProductImage(ctx context.Context, arg CreateProductImageParams) error
 	CreateSetting(ctx context.Context, arg CreateSettingParams) error
+	DeleteDigitalFile(ctx context.Context, id string) error
 	DeletePage(ctx context.Context, id string) error
+	DeleteProductImage(ctx context.Context, id string) error
+	DeleteProductImages(ctx context.Context, productID string) error
 	DeleteSession(ctx context.Context, key string) error
 	DeleteSettingByKey(ctx context.Context, key string) error
 	GetAuthCredentials(ctx context.Context) (GetAuthCredentialsRow, error)
+	// Digital Data queries
+	GetDigitalData(ctx context.Context, arg GetDigitalDataParams) (DigitalDatum, error)
+	// Digital File queries
+	GetDigitalFiles(ctx context.Context, productID string) ([]DigitalFile, error)
 	GetEmailSetting(ctx context.Context) (Setting, error)
 	GetPageByID(ctx context.Context, id string) (Page, error)
 	GetPageBySlug(ctx context.Context, slug string) (Page, error)
 	GetPasswordSetting(ctx context.Context) (Setting, error)
+	// Product queries
+	GetProductByID(ctx context.Context, id string) (Product, error)
+	GetProductBySlug(ctx context.Context, slug string) (Product, error)
+	GetProductImageByID(ctx context.Context, id string) (ProductImage, error)
+	// Product Image queries
+	GetProductImages(ctx context.Context, productID string) ([]ProductImage, error)
 	GetSession(ctx context.Context, key string) (Session, error)
 	GetSettingByID(ctx context.Context, id string) (Setting, error)
 	GetSettingByKey(ctx context.Context, key string) (Setting, error)
+	ListActiveProducts(ctx context.Context, arg ListActiveProductsParams) ([]Product, error)
 	ListActiveSessions(ctx context.Context, expires sql.NullInt64) ([]Session, error)
+	ListAllProducts(ctx context.Context, arg ListAllProductsParams) ([]Product, error)
 	ListAllSettings(ctx context.Context) ([]Setting, error)
 	ListPages(ctx context.Context, active bool) ([]Page, error)
 	ListPagesByPosition(ctx context.Context, arg ListPagesByPositionParams) ([]Page, error)
 	SetSession(ctx context.Context, arg SetSessionParams) error
+	SoftDeleteProduct(ctx context.Context, id string) error
+	UpdateDigitalDataCart(ctx context.Context, arg UpdateDigitalDataCartParams) error
 	UpdatePage(ctx context.Context, arg UpdatePageParams) error
 	UpdatePassword(ctx context.Context, value sql.NullString) error
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) error
 	UpdateSettingByID(ctx context.Context, arg UpdateSettingByIDParams) error
 	UpdateSettingByKey(ctx context.Context, arg UpdateSettingByKeyParams) error
 }

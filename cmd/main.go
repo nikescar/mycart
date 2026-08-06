@@ -86,11 +86,45 @@ func cmdServe() *cobra.Command {
 // cmdInstall creates and returns the install command.
 func cmdInstall() *cobra.Command {
 	var email, password, domain string
+	var dbType, databaseURL, dbHost, dbName, dbUser, dbPassword, dbSSLMode string
+	var dbPort int
 
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "Create the admin account (first-time setup)",
+		Long: `Create the admin account and initialize the database.
+
+Database options:
+  SQLite (default):    --db-type=sqlite
+  PostgreSQL:          --db-type=postgresql --database-url="postgresql://..."
+  PostgreSQL (manual): --db-type=postgresql --db-host=localhost --db-port=5432 --db-name=mycart --db-user=postgres --db-password=secret`,
 		Run: func(_ *cobra.Command, _ []string) {
+			// Set database environment variables if provided
+			if dbType != "" {
+				os.Setenv("DB_TYPE", dbType)
+			}
+			if databaseURL != "" {
+				os.Setenv("DATABASE_URL", databaseURL)
+			}
+			if dbHost != "" {
+				os.Setenv("DB_HOST", dbHost)
+			}
+			if dbPort > 0 {
+				os.Setenv("DB_PORT", fmt.Sprintf("%d", dbPort))
+			}
+			if dbName != "" {
+				os.Setenv("DB_NAME", dbName)
+			}
+			if dbUser != "" {
+				os.Setenv("DB_USER", dbUser)
+			}
+			if dbPassword != "" {
+				os.Setenv("DB_PASSWORD", dbPassword)
+			}
+			if dbSSLMode != "" {
+				os.Setenv("DB_SSLMODE", dbSSLMode)
+			}
+
 			handleCommandError(app.InstallAdmin(context.Background(), &models.Install{
 				Email:    email,
 				Password: password,
@@ -100,11 +134,22 @@ func cmdInstall() *cobra.Command {
 		},
 	}
 
+	// Admin credentials
 	cmd.Flags().StringVar(&email, "email", "", "admin email address")
 	cmd.Flags().StringVar(&password, "password", "", "admin password (6-72 chars)")
 	cmd.Flags().StringVar(&domain, "domain", "localhost", "public store domain")
 	_ = cmd.MarkFlagRequired("email")
 	_ = cmd.MarkFlagRequired("password")
+
+	// Database configuration
+	cmd.Flags().StringVar(&dbType, "db-type", "", "database type: sqlite (default) or postgresql")
+	cmd.Flags().StringVar(&databaseURL, "database-url", "", "PostgreSQL connection URL (e.g., postgresql://user:pass@host:5432/db)")
+	cmd.Flags().StringVar(&dbHost, "db-host", "", "database host")
+	cmd.Flags().IntVar(&dbPort, "db-port", 0, "database port")
+	cmd.Flags().StringVar(&dbName, "db-name", "", "database name")
+	cmd.Flags().StringVar(&dbUser, "db-user", "", "database user")
+	cmd.Flags().StringVar(&dbPassword, "db-password", "", "database password")
+	cmd.Flags().StringVar(&dbSSLMode, "db-sslmode", "", "PostgreSQL SSL mode: disable, require, verify-ca, verify-full")
 
 	return cmd
 }

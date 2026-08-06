@@ -44,6 +44,8 @@ func main() {
 	rootCmd.AddCommand(cmdServe())
 	rootCmd.AddCommand(cmdUpdate())
 	rootCmd.AddCommand(cmdMigrate())
+	rootCmd.AddCommand(cmdMigrateToPostgres())
+	rootCmd.AddCommand(cmdMigrateToSQLite())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -197,4 +199,92 @@ func cmdMigrate() *cobra.Command {
 			handleCommandError(app.Migrate())
 		},
 	}
+}
+
+// cmdMigrateToPostgres creates and returns the migrate-to-postgres command.
+func cmdMigrateToPostgres() *cobra.Command {
+	var databaseURL, dbHost, dbName, dbUser, dbPassword, dbSSLMode string
+	var dbPort int
+
+	cmd := &cobra.Command{
+		Use:   "migrate-to-postgres",
+		Short: "Migrate data from SQLite to PostgreSQL",
+		Long: `Migrate all data from SQLite database to PostgreSQL.
+
+This command will:
+1. Create a backup of the SQLite database
+2. Connect to the target PostgreSQL database
+3. Copy all data from SQLite to PostgreSQL
+4. Verify the migration
+
+Example:
+  mycart migrate-to-postgres --database-url="postgresql://user:pass@localhost:5432/mycart"`,
+		Run: func(_ *cobra.Command, _ []string) {
+			// Set PostgreSQL environment variables
+			if databaseURL != "" {
+				os.Setenv("DATABASE_URL", databaseURL)
+			}
+			if dbHost != "" {
+				os.Setenv("DB_HOST", dbHost)
+			}
+			if dbPort > 0 {
+				os.Setenv("DB_PORT", fmt.Sprintf("%d", dbPort))
+			}
+			if dbName != "" {
+				os.Setenv("DB_NAME", dbName)
+			}
+			if dbUser != "" {
+				os.Setenv("DB_USER", dbUser)
+			}
+			if dbPassword != "" {
+				os.Setenv("DB_PASSWORD", dbPassword)
+			}
+			if dbSSLMode != "" {
+				os.Setenv("DB_SSLMODE", dbSSLMode)
+			}
+
+			handleCommandError(app.MigrateToPostgres())
+		},
+	}
+
+	cmd.Flags().StringVar(&databaseURL, "database-url", "", "PostgreSQL connection URL (required)")
+	cmd.Flags().StringVar(&dbHost, "db-host", "", "database host")
+	cmd.Flags().IntVar(&dbPort, "db-port", 5432, "database port")
+	cmd.Flags().StringVar(&dbName, "db-name", "", "database name")
+	cmd.Flags().StringVar(&dbUser, "db-user", "", "database user")
+	cmd.Flags().StringVar(&dbPassword, "db-password", "", "database password")
+	cmd.Flags().StringVar(&dbSSLMode, "db-sslmode", "require", "PostgreSQL SSL mode")
+
+	return cmd
+}
+
+// cmdMigrateToSQLite creates and returns the migrate-to-sqlite command.
+func cmdMigrateToSQLite() *cobra.Command {
+	var sqlitePath string
+
+	cmd := &cobra.Command{
+		Use:   "migrate-to-sqlite",
+		Short: "Migrate data from PostgreSQL to SQLite",
+		Long: `Migrate all data from PostgreSQL database to SQLite.
+
+This command will:
+1. Create a new SQLite database
+2. Connect to the source PostgreSQL database
+3. Copy all data from PostgreSQL to SQLite
+4. Verify the migration
+
+Example:
+  mycart migrate-to-sqlite --path=./lc_base/data.db`,
+		Run: func(_ *cobra.Command, _ []string) {
+			if sqlitePath != "" {
+				os.Setenv("SQLITE_PATH", sqlitePath)
+			}
+
+			handleCommandError(app.MigrateToSQLite())
+		},
+	}
+
+	cmd.Flags().StringVar(&sqlitePath, "path", "./lc_base/data.db", "SQLite database file path")
+
+	return cmd
 }

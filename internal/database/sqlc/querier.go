@@ -16,12 +16,18 @@ type Querier interface {
 	CleanupExpiredSessions(ctx context.Context, expires sql.NullInt64) error
 	CountActiveProducts(ctx context.Context) (int64, error)
 	CountAllProducts(ctx context.Context) (int64, error)
+	CountCarts(ctx context.Context) (int64, error)
+	CreateCart(ctx context.Context, arg CreateCartParams) error
+	CreateCartProduct(ctx context.Context, arg CreateCartProductParams) error
 	CreateDigitalData(ctx context.Context, arg CreateDigitalDataParams) error
 	CreateDigitalFile(ctx context.Context, arg CreateDigitalFileParams) error
 	CreatePage(ctx context.Context, arg CreatePageParams) error
 	CreateProduct(ctx context.Context, arg CreateProductParams) error
 	CreateProductImage(ctx context.Context, arg CreateProductImageParams) error
 	CreateSetting(ctx context.Context, arg CreateSettingParams) error
+	DeleteCart(ctx context.Context, id string) error
+	DeleteCartProduct(ctx context.Context, id string) error
+	DeleteCartProducts(ctx context.Context, cartID string) error
 	DeleteDigitalFile(ctx context.Context, id string) error
 	DeletePage(ctx context.Context, id string) error
 	DeleteProductImage(ctx context.Context, id string) error
@@ -29,6 +35,12 @@ type Querier interface {
 	DeleteSession(ctx context.Context, key string) error
 	DeleteSettingByKey(ctx context.Context, key string) error
 	GetAuthCredentials(ctx context.Context) (GetAuthCredentialsRow, error)
+	// Cart queries
+	GetCartByID(ctx context.Context, id string) (Cart, error)
+	GetCartProductByCartAndProduct(ctx context.Context, arg GetCartProductByCartAndProductParams) (CartProduct, error)
+	GetCartProductByID(ctx context.Context, id string) (CartProduct, error)
+	// Cart Product queries
+	GetCartProducts(ctx context.Context, cartID string) ([]CartProduct, error)
 	// Digital Data queries
 	GetDigitalData(ctx context.Context, arg GetDigitalDataParams) (DigitalDatum, error)
 	// Digital File queries
@@ -50,10 +62,17 @@ type Querier interface {
 	ListActiveSessions(ctx context.Context, expires sql.NullInt64) ([]Session, error)
 	ListAllProducts(ctx context.Context, arg ListAllProductsParams) ([]Product, error)
 	ListAllSettings(ctx context.Context) ([]Setting, error)
+	ListCarts(ctx context.Context, arg ListCartsParams) ([]Cart, error)
+	ListCartsByPaymentSystem(ctx context.Context, arg ListCartsByPaymentSystemParams) ([]Cart, error)
+	// Payment queries
+	ListCartsWithPaymentStatus(ctx context.Context, arg ListCartsWithPaymentStatusParams) ([]Cart, error)
 	ListPages(ctx context.Context, active bool) ([]Page, error)
 	ListPagesByPosition(ctx context.Context, arg ListPagesByPositionParams) ([]Page, error)
 	SetSession(ctx context.Context, arg SetSessionParams) error
 	SoftDeleteProduct(ctx context.Context, id string) error
+	UpdateCartPayment(ctx context.Context, arg UpdateCartPaymentParams) error
+	UpdateCartProductQuantity(ctx context.Context, arg UpdateCartProductQuantityParams) error
+	UpdateCartTotal(ctx context.Context, arg UpdateCartTotalParams) error
 	UpdateDigitalDataCart(ctx context.Context, arg UpdateDigitalDataCartParams) error
 	UpdatePage(ctx context.Context, arg UpdatePageParams) error
 	UpdatePassword(ctx context.Context, value sql.NullString) error

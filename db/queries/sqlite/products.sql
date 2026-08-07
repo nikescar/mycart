@@ -48,3 +48,49 @@ DELETE FROM product WHERE id = ?;
 
 -- name: ProductExists :one
 SELECT EXISTS(SELECT 1 FROM product WHERE slug = ? AND deleted = FALSE);
+
+-- Product Variant Queries
+
+-- name: GetProductWithVariants :many
+SELECT
+    p.id as product_id,
+    p.name as product_name,
+    pv.id as variant_id,
+    pv.sku as variant_sku,
+    pv.price_surcharge as variant_price_surcharge,
+    pv.quantity as variant_quantity,
+    pv.option_values as variant_option_values
+FROM product p
+LEFT JOIN product_variant pv ON p.id = pv.product_id
+WHERE p.id = ?;
+
+-- name: CreateProductVariant :one
+INSERT INTO product_variant (id, product_id, sku, price_surcharge, quantity, option_values)
+VALUES (?, ?, ?, ?, ?, ?)
+RETURNING id, product_id, sku, price_surcharge, quantity, option_values, active, deleted, created, updated;
+
+-- name: UpdateProductVariant :exec
+UPDATE product_variant
+SET sku = ?, price_surcharge = ?, quantity = ?, option_values = ?, updated = CURRENT_TIMESTAMP
+WHERE id = ?;
+
+-- name: DeleteProductVariant :exec
+DELETE FROM product_variant WHERE id = ?;
+
+-- name: ListProductVariantsByProduct :many
+SELECT id, product_id, sku, price_surcharge, quantity, option_values, active, deleted, created, updated
+FROM product_variant
+WHERE product_id = ?;
+
+-- name: GetProductOption :one
+SELECT id, name, product_id, position, created
+FROM product_option
+WHERE id = ? LIMIT 1;
+
+-- name: CreateProductOption :one
+INSERT INTO product_option (id, name, product_id, position)
+VALUES (?, ?, ?, ?)
+RETURNING id, name, product_id, position, created;
+
+-- name: DeleteProductOption :exec
+DELETE FROM product_option WHERE id = ?;

@@ -85,12 +85,109 @@ func (q *Queries) CreateProduct(ctx context.Context, arg CreateProductParams) (C
 	return i, err
 }
 
+const createProductOption = `-- name: CreateProductOption :one
+INSERT INTO product_option (id, name, product_id, position)
+VALUES ($1, $2, $3, $4)
+RETURNING id, name, product_id, position, created
+`
+
+type CreateProductOptionParams struct {
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	ProductID string        `json:"product_id"`
+	Position  sql.NullInt32 `json:"position"`
+}
+
+type CreateProductOptionRow struct {
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	ProductID string        `json:"product_id"`
+	Position  sql.NullInt32 `json:"position"`
+	Created   sql.NullTime  `json:"created"`
+}
+
+func (q *Queries) CreateProductOption(ctx context.Context, arg CreateProductOptionParams) (CreateProductOptionRow, error) {
+	row := q.queryRow(ctx, q.createProductOptionStmt, createProductOption,
+		arg.ID,
+		arg.Name,
+		arg.ProductID,
+		arg.Position,
+	)
+	var i CreateProductOptionRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProductID,
+		&i.Position,
+		&i.Created,
+	)
+	return i, err
+}
+
+const createProductVariant = `-- name: CreateProductVariant :one
+INSERT INTO product_variant (id, product_id, sku, price_surcharge, quantity, option_values)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, product_id, sku, price_surcharge, quantity, option_values, active, deleted, created, updated
+`
+
+type CreateProductVariantParams struct {
+	ID             string         `json:"id"`
+	ProductID      string         `json:"product_id"`
+	Sku            sql.NullString `json:"sku"`
+	PriceSurcharge sql.NullString `json:"price_surcharge"`
+	Quantity       sql.NullInt32  `json:"quantity"`
+	OptionValues   string         `json:"option_values"`
+}
+
+func (q *Queries) CreateProductVariant(ctx context.Context, arg CreateProductVariantParams) (ProductVariant, error) {
+	row := q.queryRow(ctx, q.createProductVariantStmt, createProductVariant,
+		arg.ID,
+		arg.ProductID,
+		arg.Sku,
+		arg.PriceSurcharge,
+		arg.Quantity,
+		arg.OptionValues,
+	)
+	var i ProductVariant
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Sku,
+		&i.PriceSurcharge,
+		&i.Quantity,
+		&i.OptionValues,
+		&i.Active,
+		&i.Deleted,
+		&i.Created,
+		&i.Updated,
+	)
+	return i, err
+}
+
 const deleteProduct = `-- name: DeleteProduct :exec
 DELETE FROM product WHERE id = $1
 `
 
 func (q *Queries) DeleteProduct(ctx context.Context, id string) error {
 	_, err := q.exec(ctx, q.deleteProductStmt, deleteProduct, id)
+	return err
+}
+
+const deleteProductOption = `-- name: DeleteProductOption :exec
+DELETE FROM product_option WHERE id = $1
+`
+
+func (q *Queries) DeleteProductOption(ctx context.Context, id string) error {
+	_, err := q.exec(ctx, q.deleteProductOptionStmt, deleteProductOption, id)
+	return err
+}
+
+const deleteProductVariant = `-- name: DeleteProductVariant :exec
+DELETE FROM product_variant WHERE id = $1
+`
+
+func (q *Queries) DeleteProductVariant(ctx context.Context, id string) error {
+	_, err := q.exec(ctx, q.deleteProductVariantStmt, deleteProductVariant, id)
 	return err
 }
 
@@ -174,6 +271,90 @@ func (q *Queries) GetProductBySlug(ctx context.Context, slug string) (GetProduct
 	return i, err
 }
 
+const getProductOption = `-- name: GetProductOption :one
+SELECT id, name, product_id, position, created
+FROM product_option
+WHERE id = $1 LIMIT 1
+`
+
+type GetProductOptionRow struct {
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	ProductID string        `json:"product_id"`
+	Position  sql.NullInt32 `json:"position"`
+	Created   sql.NullTime  `json:"created"`
+}
+
+func (q *Queries) GetProductOption(ctx context.Context, id string) (GetProductOptionRow, error) {
+	row := q.queryRow(ctx, q.getProductOptionStmt, getProductOption, id)
+	var i GetProductOptionRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ProductID,
+		&i.Position,
+		&i.Created,
+	)
+	return i, err
+}
+
+const getProductWithVariants = `-- name: GetProductWithVariants :many
+
+SELECT
+    p.id as product_id,
+    p.name as product_name,
+    pv.id as variant_id,
+    pv.sku as variant_sku,
+    pv.price_surcharge as variant_price_surcharge,
+    pv.quantity as variant_quantity,
+    pv.option_values as variant_option_values
+FROM product p
+LEFT JOIN product_variant pv ON p.id = pv.product_id
+WHERE p.id = $1
+`
+
+type GetProductWithVariantsRow struct {
+	ProductID             string         `json:"product_id"`
+	ProductName           string         `json:"product_name"`
+	VariantID             sql.NullString `json:"variant_id"`
+	VariantSku            sql.NullString `json:"variant_sku"`
+	VariantPriceSurcharge sql.NullString `json:"variant_price_surcharge"`
+	VariantQuantity       sql.NullInt32  `json:"variant_quantity"`
+	VariantOptionValues   sql.NullString `json:"variant_option_values"`
+}
+
+// Product Variant Queries
+func (q *Queries) GetProductWithVariants(ctx context.Context, id string) ([]GetProductWithVariantsRow, error) {
+	rows, err := q.query(ctx, q.getProductWithVariantsStmt, getProductWithVariants, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetProductWithVariantsRow{}
+	for rows.Next() {
+		var i GetProductWithVariantsRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.ProductName,
+			&i.VariantID,
+			&i.VariantSku,
+			&i.VariantPriceSurcharge,
+			&i.VariantQuantity,
+			&i.VariantOptionValues,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listActiveProducts = `-- name: ListActiveProducts :many
 SELECT id, name, "desc", slug, amount, metadata, attribute, digital, active, deleted, created, updated
 FROM product
@@ -220,6 +401,46 @@ func (q *Queries) ListActiveProducts(ctx context.Context, arg ListActiveProducts
 			&i.Metadata,
 			&i.Attribute,
 			&i.Digital,
+			&i.Active,
+			&i.Deleted,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProductVariantsByProduct = `-- name: ListProductVariantsByProduct :many
+SELECT id, product_id, sku, price_surcharge, quantity, option_values, active, deleted, created, updated
+FROM product_variant
+WHERE product_id = $1
+`
+
+func (q *Queries) ListProductVariantsByProduct(ctx context.Context, productID string) ([]ProductVariant, error) {
+	rows, err := q.query(ctx, q.listProductVariantsByProductStmt, listProductVariantsByProduct, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ProductVariant{}
+	for rows.Next() {
+		var i ProductVariant
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Sku,
+			&i.PriceSurcharge,
+			&i.Quantity,
+			&i.OptionValues,
 			&i.Active,
 			&i.Deleted,
 			&i.Created,
@@ -365,5 +586,30 @@ WHERE id = $1
 
 func (q *Queries) UpdateProductActive(ctx context.Context, id string) error {
 	_, err := q.exec(ctx, q.updateProductActiveStmt, updateProductActive, id)
+	return err
+}
+
+const updateProductVariant = `-- name: UpdateProductVariant :exec
+UPDATE product_variant
+SET sku = $2, price_surcharge = $3, quantity = $4, option_values = $5, updated = NOW()
+WHERE id = $1
+`
+
+type UpdateProductVariantParams struct {
+	ID             string         `json:"id"`
+	Sku            sql.NullString `json:"sku"`
+	PriceSurcharge sql.NullString `json:"price_surcharge"`
+	Quantity       sql.NullInt32  `json:"quantity"`
+	OptionValues   string         `json:"option_values"`
+}
+
+func (q *Queries) UpdateProductVariant(ctx context.Context, arg UpdateProductVariantParams) error {
+	_, err := q.exec(ctx, q.updateProductVariantStmt, updateProductVariant,
+		arg.ID,
+		arg.Sku,
+		arg.PriceSurcharge,
+		arg.Quantity,
+		arg.OptionValues,
+	)
 	return err
 }

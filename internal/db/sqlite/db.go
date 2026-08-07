@@ -51,6 +51,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createProductImageStmt, err = db.PrepareContext(ctx, createProductImage); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateProductImage: %w", err)
 	}
+	if q.createProductOptionStmt, err = db.PrepareContext(ctx, createProductOption); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductOption: %w", err)
+	}
+	if q.createProductVariantStmt, err = db.PrepareContext(ctx, createProductVariant); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateProductVariant: %w", err)
+	}
 	if q.createSessionStmt, err = db.PrepareContext(ctx, createSession); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateSession: %w", err)
 	}
@@ -89,6 +95,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.deleteProductImagesStmt, err = db.PrepareContext(ctx, deleteProductImages); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteProductImages: %w", err)
+	}
+	if q.deleteProductOptionStmt, err = db.PrepareContext(ctx, deleteProductOption); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductOption: %w", err)
+	}
+	if q.deleteProductVariantStmt, err = db.PrepareContext(ctx, deleteProductVariant); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteProductVariant: %w", err)
 	}
 	if q.deleteSessionStmt, err = db.PrepareContext(ctx, deleteSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteSession: %w", err)
@@ -129,6 +141,12 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getProductImageStmt, err = db.PrepareContext(ctx, getProductImage); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductImage: %w", err)
 	}
+	if q.getProductOptionStmt, err = db.PrepareContext(ctx, getProductOption); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductOption: %w", err)
+	}
+	if q.getProductWithVariantsStmt, err = db.PrepareContext(ctx, getProductWithVariants); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductWithVariants: %w", err)
+	}
 	if q.getSessionStmt, err = db.PrepareContext(ctx, getSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSession: %w", err)
 	}
@@ -161,6 +179,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.listProductImagesStmt, err = db.PrepareContext(ctx, listProductImages); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProductImages: %w", err)
+	}
+	if q.listProductVariantsByProductStmt, err = db.PrepareContext(ctx, listProductVariantsByProduct); err != nil {
+		return nil, fmt.Errorf("error preparing query ListProductVariantsByProduct: %w", err)
 	}
 	if q.listProductsStmt, err = db.PrepareContext(ctx, listProducts); err != nil {
 		return nil, fmt.Errorf("error preparing query ListProducts: %w", err)
@@ -206,6 +227,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.updateProductActiveStmt, err = db.PrepareContext(ctx, updateProductActive); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateProductActive: %w", err)
+	}
+	if q.updateProductVariantStmt, err = db.PrepareContext(ctx, updateProductVariant); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateProductVariant: %w", err)
 	}
 	if q.updateSessionStmt, err = db.PrepareContext(ctx, updateSession); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateSession: %w", err)
@@ -264,6 +288,16 @@ func (q *Queries) Close() error {
 	if q.createProductImageStmt != nil {
 		if cerr := q.createProductImageStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createProductImageStmt: %w", cerr)
+		}
+	}
+	if q.createProductOptionStmt != nil {
+		if cerr := q.createProductOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductOptionStmt: %w", cerr)
+		}
+	}
+	if q.createProductVariantStmt != nil {
+		if cerr := q.createProductVariantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createProductVariantStmt: %w", cerr)
 		}
 	}
 	if q.createSessionStmt != nil {
@@ -331,6 +365,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteProductImagesStmt: %w", cerr)
 		}
 	}
+	if q.deleteProductOptionStmt != nil {
+		if cerr := q.deleteProductOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductOptionStmt: %w", cerr)
+		}
+	}
+	if q.deleteProductVariantStmt != nil {
+		if cerr := q.deleteProductVariantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteProductVariantStmt: %w", cerr)
+		}
+	}
 	if q.deleteSessionStmt != nil {
 		if cerr := q.deleteSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteSessionStmt: %w", cerr)
@@ -396,6 +440,16 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getProductImageStmt: %w", cerr)
 		}
 	}
+	if q.getProductOptionStmt != nil {
+		if cerr := q.getProductOptionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductOptionStmt: %w", cerr)
+		}
+	}
+	if q.getProductWithVariantsStmt != nil {
+		if cerr := q.getProductWithVariantsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductWithVariantsStmt: %w", cerr)
+		}
+	}
 	if q.getSessionStmt != nil {
 		if cerr := q.getSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getSessionStmt: %w", cerr)
@@ -449,6 +503,11 @@ func (q *Queries) Close() error {
 	if q.listProductImagesStmt != nil {
 		if cerr := q.listProductImagesStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listProductImagesStmt: %w", cerr)
+		}
+	}
+	if q.listProductVariantsByProductStmt != nil {
+		if cerr := q.listProductVariantsByProductStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listProductVariantsByProductStmt: %w", cerr)
 		}
 	}
 	if q.listProductsStmt != nil {
@@ -526,6 +585,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing updateProductActiveStmt: %w", cerr)
 		}
 	}
+	if q.updateProductVariantStmt != nil {
+		if cerr := q.updateProductVariantStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateProductVariantStmt: %w", cerr)
+		}
+	}
 	if q.updateSessionStmt != nil {
 		if cerr := q.updateSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing updateSessionStmt: %w", cerr)
@@ -578,141 +642,157 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                             DBTX
-	tx                             *sql.Tx
-	countCartsStmt                 *sql.Stmt
-	countPagesStmt                 *sql.Stmt
-	countProductsStmt              *sql.Stmt
-	createCartStmt                 *sql.Stmt
-	createDigitalDataStmt          *sql.Stmt
-	createDigitalFileStmt          *sql.Stmt
-	createPageStmt                 *sql.Stmt
-	createProductStmt              *sql.Stmt
-	createProductImageStmt         *sql.Stmt
-	createSessionStmt              *sql.Stmt
-	createSettingStmt              *sql.Stmt
-	createSubdomainStmt            *sql.Stmt
-	deleteCartStmt                 *sql.Stmt
-	deleteDigitalDataStmt          *sql.Stmt
-	deleteDigitalDataByProductStmt *sql.Stmt
-	deleteDigitalFileStmt          *sql.Stmt
-	deleteDigitalFilesStmt         *sql.Stmt
-	deleteExpiredSessionsStmt      *sql.Stmt
-	deletePageStmt                 *sql.Stmt
-	deleteProductStmt              *sql.Stmt
-	deleteProductImageStmt         *sql.Stmt
-	deleteProductImagesStmt        *sql.Stmt
-	deleteSessionStmt              *sql.Stmt
-	deleteSettingStmt              *sql.Stmt
-	deleteSubdomainStmt            *sql.Stmt
-	getCartStmt                    *sql.Stmt
-	getDigitalDataStmt             *sql.Stmt
-	getDigitalDataByProductStmt    *sql.Stmt
-	getDigitalFileStmt             *sql.Stmt
-	getPageByIDStmt                *sql.Stmt
-	getPageBySlugStmt              *sql.Stmt
-	getPasswordByEmailStmt         *sql.Stmt
-	getProductByIDStmt             *sql.Stmt
-	getProductBySlugStmt           *sql.Stmt
-	getProductImageStmt            *sql.Stmt
-	getSessionStmt                 *sql.Stmt
-	getSettingByKeyStmt            *sql.Stmt
-	getSubdomainStmt               *sql.Stmt
-	getSubdomainByNameStmt         *sql.Stmt
-	listActiveProductsStmt         *sql.Stmt
-	listCartsStmt                  *sql.Stmt
-	listDigitalDataByCartStmt      *sql.Stmt
-	listDigitalFilesStmt           *sql.Stmt
-	listPagesStmt                  *sql.Stmt
-	listPagesByPositionStmt        *sql.Stmt
-	listProductImagesStmt          *sql.Stmt
-	listProductsStmt               *sql.Stmt
-	listSettingsStmt               *sql.Stmt
-	listSubdomainsStmt             *sql.Stmt
-	pageExistsStmt                 *sql.Stmt
-	productExistsStmt              *sql.Stmt
-	softDeleteProductStmt          *sql.Stmt
-	subdomainExistsStmt            *sql.Stmt
-	updateCartStmt                 *sql.Stmt
-	updateCartPaymentStatusStmt    *sql.Stmt
-	updateDigitalDataStmt          *sql.Stmt
-	updatePageStmt                 *sql.Stmt
-	updatePageActiveStmt           *sql.Stmt
-	updatePageContentStmt          *sql.Stmt
-	updateProductStmt              *sql.Stmt
-	updateProductActiveStmt        *sql.Stmt
-	updateSessionStmt              *sql.Stmt
-	updateSettingStmt              *sql.Stmt
-	updateSubdomainStmt            *sql.Stmt
+	db                               DBTX
+	tx                               *sql.Tx
+	countCartsStmt                   *sql.Stmt
+	countPagesStmt                   *sql.Stmt
+	countProductsStmt                *sql.Stmt
+	createCartStmt                   *sql.Stmt
+	createDigitalDataStmt            *sql.Stmt
+	createDigitalFileStmt            *sql.Stmt
+	createPageStmt                   *sql.Stmt
+	createProductStmt                *sql.Stmt
+	createProductImageStmt           *sql.Stmt
+	createProductOptionStmt          *sql.Stmt
+	createProductVariantStmt         *sql.Stmt
+	createSessionStmt                *sql.Stmt
+	createSettingStmt                *sql.Stmt
+	createSubdomainStmt              *sql.Stmt
+	deleteCartStmt                   *sql.Stmt
+	deleteDigitalDataStmt            *sql.Stmt
+	deleteDigitalDataByProductStmt   *sql.Stmt
+	deleteDigitalFileStmt            *sql.Stmt
+	deleteDigitalFilesStmt           *sql.Stmt
+	deleteExpiredSessionsStmt        *sql.Stmt
+	deletePageStmt                   *sql.Stmt
+	deleteProductStmt                *sql.Stmt
+	deleteProductImageStmt           *sql.Stmt
+	deleteProductImagesStmt          *sql.Stmt
+	deleteProductOptionStmt          *sql.Stmt
+	deleteProductVariantStmt         *sql.Stmt
+	deleteSessionStmt                *sql.Stmt
+	deleteSettingStmt                *sql.Stmt
+	deleteSubdomainStmt              *sql.Stmt
+	getCartStmt                      *sql.Stmt
+	getDigitalDataStmt               *sql.Stmt
+	getDigitalDataByProductStmt      *sql.Stmt
+	getDigitalFileStmt               *sql.Stmt
+	getPageByIDStmt                  *sql.Stmt
+	getPageBySlugStmt                *sql.Stmt
+	getPasswordByEmailStmt           *sql.Stmt
+	getProductByIDStmt               *sql.Stmt
+	getProductBySlugStmt             *sql.Stmt
+	getProductImageStmt              *sql.Stmt
+	getProductOptionStmt             *sql.Stmt
+	getProductWithVariantsStmt       *sql.Stmt
+	getSessionStmt                   *sql.Stmt
+	getSettingByKeyStmt              *sql.Stmt
+	getSubdomainStmt                 *sql.Stmt
+	getSubdomainByNameStmt           *sql.Stmt
+	listActiveProductsStmt           *sql.Stmt
+	listCartsStmt                    *sql.Stmt
+	listDigitalDataByCartStmt        *sql.Stmt
+	listDigitalFilesStmt             *sql.Stmt
+	listPagesStmt                    *sql.Stmt
+	listPagesByPositionStmt          *sql.Stmt
+	listProductImagesStmt            *sql.Stmt
+	listProductVariantsByProductStmt *sql.Stmt
+	listProductsStmt                 *sql.Stmt
+	listSettingsStmt                 *sql.Stmt
+	listSubdomainsStmt               *sql.Stmt
+	pageExistsStmt                   *sql.Stmt
+	productExistsStmt                *sql.Stmt
+	softDeleteProductStmt            *sql.Stmt
+	subdomainExistsStmt              *sql.Stmt
+	updateCartStmt                   *sql.Stmt
+	updateCartPaymentStatusStmt      *sql.Stmt
+	updateDigitalDataStmt            *sql.Stmt
+	updatePageStmt                   *sql.Stmt
+	updatePageActiveStmt             *sql.Stmt
+	updatePageContentStmt            *sql.Stmt
+	updateProductStmt                *sql.Stmt
+	updateProductActiveStmt          *sql.Stmt
+	updateProductVariantStmt         *sql.Stmt
+	updateSessionStmt                *sql.Stmt
+	updateSettingStmt                *sql.Stmt
+	updateSubdomainStmt              *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                             tx,
-		tx:                             tx,
-		countCartsStmt:                 q.countCartsStmt,
-		countPagesStmt:                 q.countPagesStmt,
-		countProductsStmt:              q.countProductsStmt,
-		createCartStmt:                 q.createCartStmt,
-		createDigitalDataStmt:          q.createDigitalDataStmt,
-		createDigitalFileStmt:          q.createDigitalFileStmt,
-		createPageStmt:                 q.createPageStmt,
-		createProductStmt:              q.createProductStmt,
-		createProductImageStmt:         q.createProductImageStmt,
-		createSessionStmt:              q.createSessionStmt,
-		createSettingStmt:              q.createSettingStmt,
-		createSubdomainStmt:            q.createSubdomainStmt,
-		deleteCartStmt:                 q.deleteCartStmt,
-		deleteDigitalDataStmt:          q.deleteDigitalDataStmt,
-		deleteDigitalDataByProductStmt: q.deleteDigitalDataByProductStmt,
-		deleteDigitalFileStmt:          q.deleteDigitalFileStmt,
-		deleteDigitalFilesStmt:         q.deleteDigitalFilesStmt,
-		deleteExpiredSessionsStmt:      q.deleteExpiredSessionsStmt,
-		deletePageStmt:                 q.deletePageStmt,
-		deleteProductStmt:              q.deleteProductStmt,
-		deleteProductImageStmt:         q.deleteProductImageStmt,
-		deleteProductImagesStmt:        q.deleteProductImagesStmt,
-		deleteSessionStmt:              q.deleteSessionStmt,
-		deleteSettingStmt:              q.deleteSettingStmt,
-		deleteSubdomainStmt:            q.deleteSubdomainStmt,
-		getCartStmt:                    q.getCartStmt,
-		getDigitalDataStmt:             q.getDigitalDataStmt,
-		getDigitalDataByProductStmt:    q.getDigitalDataByProductStmt,
-		getDigitalFileStmt:             q.getDigitalFileStmt,
-		getPageByIDStmt:                q.getPageByIDStmt,
-		getPageBySlugStmt:              q.getPageBySlugStmt,
-		getPasswordByEmailStmt:         q.getPasswordByEmailStmt,
-		getProductByIDStmt:             q.getProductByIDStmt,
-		getProductBySlugStmt:           q.getProductBySlugStmt,
-		getProductImageStmt:            q.getProductImageStmt,
-		getSessionStmt:                 q.getSessionStmt,
-		getSettingByKeyStmt:            q.getSettingByKeyStmt,
-		getSubdomainStmt:               q.getSubdomainStmt,
-		getSubdomainByNameStmt:         q.getSubdomainByNameStmt,
-		listActiveProductsStmt:         q.listActiveProductsStmt,
-		listCartsStmt:                  q.listCartsStmt,
-		listDigitalDataByCartStmt:      q.listDigitalDataByCartStmt,
-		listDigitalFilesStmt:           q.listDigitalFilesStmt,
-		listPagesStmt:                  q.listPagesStmt,
-		listPagesByPositionStmt:        q.listPagesByPositionStmt,
-		listProductImagesStmt:          q.listProductImagesStmt,
-		listProductsStmt:               q.listProductsStmt,
-		listSettingsStmt:               q.listSettingsStmt,
-		listSubdomainsStmt:             q.listSubdomainsStmt,
-		pageExistsStmt:                 q.pageExistsStmt,
-		productExistsStmt:              q.productExistsStmt,
-		softDeleteProductStmt:          q.softDeleteProductStmt,
-		subdomainExistsStmt:            q.subdomainExistsStmt,
-		updateCartStmt:                 q.updateCartStmt,
-		updateCartPaymentStatusStmt:    q.updateCartPaymentStatusStmt,
-		updateDigitalDataStmt:          q.updateDigitalDataStmt,
-		updatePageStmt:                 q.updatePageStmt,
-		updatePageActiveStmt:           q.updatePageActiveStmt,
-		updatePageContentStmt:          q.updatePageContentStmt,
-		updateProductStmt:              q.updateProductStmt,
-		updateProductActiveStmt:        q.updateProductActiveStmt,
-		updateSessionStmt:              q.updateSessionStmt,
-		updateSettingStmt:              q.updateSettingStmt,
-		updateSubdomainStmt:            q.updateSubdomainStmt,
+		db:                               tx,
+		tx:                               tx,
+		countCartsStmt:                   q.countCartsStmt,
+		countPagesStmt:                   q.countPagesStmt,
+		countProductsStmt:                q.countProductsStmt,
+		createCartStmt:                   q.createCartStmt,
+		createDigitalDataStmt:            q.createDigitalDataStmt,
+		createDigitalFileStmt:            q.createDigitalFileStmt,
+		createPageStmt:                   q.createPageStmt,
+		createProductStmt:                q.createProductStmt,
+		createProductImageStmt:           q.createProductImageStmt,
+		createProductOptionStmt:          q.createProductOptionStmt,
+		createProductVariantStmt:         q.createProductVariantStmt,
+		createSessionStmt:                q.createSessionStmt,
+		createSettingStmt:                q.createSettingStmt,
+		createSubdomainStmt:              q.createSubdomainStmt,
+		deleteCartStmt:                   q.deleteCartStmt,
+		deleteDigitalDataStmt:            q.deleteDigitalDataStmt,
+		deleteDigitalDataByProductStmt:   q.deleteDigitalDataByProductStmt,
+		deleteDigitalFileStmt:            q.deleteDigitalFileStmt,
+		deleteDigitalFilesStmt:           q.deleteDigitalFilesStmt,
+		deleteExpiredSessionsStmt:        q.deleteExpiredSessionsStmt,
+		deletePageStmt:                   q.deletePageStmt,
+		deleteProductStmt:                q.deleteProductStmt,
+		deleteProductImageStmt:           q.deleteProductImageStmt,
+		deleteProductImagesStmt:          q.deleteProductImagesStmt,
+		deleteProductOptionStmt:          q.deleteProductOptionStmt,
+		deleteProductVariantStmt:         q.deleteProductVariantStmt,
+		deleteSessionStmt:                q.deleteSessionStmt,
+		deleteSettingStmt:                q.deleteSettingStmt,
+		deleteSubdomainStmt:              q.deleteSubdomainStmt,
+		getCartStmt:                      q.getCartStmt,
+		getDigitalDataStmt:               q.getDigitalDataStmt,
+		getDigitalDataByProductStmt:      q.getDigitalDataByProductStmt,
+		getDigitalFileStmt:               q.getDigitalFileStmt,
+		getPageByIDStmt:                  q.getPageByIDStmt,
+		getPageBySlugStmt:                q.getPageBySlugStmt,
+		getPasswordByEmailStmt:           q.getPasswordByEmailStmt,
+		getProductByIDStmt:               q.getProductByIDStmt,
+		getProductBySlugStmt:             q.getProductBySlugStmt,
+		getProductImageStmt:              q.getProductImageStmt,
+		getProductOptionStmt:             q.getProductOptionStmt,
+		getProductWithVariantsStmt:       q.getProductWithVariantsStmt,
+		getSessionStmt:                   q.getSessionStmt,
+		getSettingByKeyStmt:              q.getSettingByKeyStmt,
+		getSubdomainStmt:                 q.getSubdomainStmt,
+		getSubdomainByNameStmt:           q.getSubdomainByNameStmt,
+		listActiveProductsStmt:           q.listActiveProductsStmt,
+		listCartsStmt:                    q.listCartsStmt,
+		listDigitalDataByCartStmt:        q.listDigitalDataByCartStmt,
+		listDigitalFilesStmt:             q.listDigitalFilesStmt,
+		listPagesStmt:                    q.listPagesStmt,
+		listPagesByPositionStmt:          q.listPagesByPositionStmt,
+		listProductImagesStmt:            q.listProductImagesStmt,
+		listProductVariantsByProductStmt: q.listProductVariantsByProductStmt,
+		listProductsStmt:                 q.listProductsStmt,
+		listSettingsStmt:                 q.listSettingsStmt,
+		listSubdomainsStmt:               q.listSubdomainsStmt,
+		pageExistsStmt:                   q.pageExistsStmt,
+		productExistsStmt:                q.productExistsStmt,
+		softDeleteProductStmt:            q.softDeleteProductStmt,
+		subdomainExistsStmt:              q.subdomainExistsStmt,
+		updateCartStmt:                   q.updateCartStmt,
+		updateCartPaymentStatusStmt:      q.updateCartPaymentStatusStmt,
+		updateDigitalDataStmt:            q.updateDigitalDataStmt,
+		updatePageStmt:                   q.updatePageStmt,
+		updatePageActiveStmt:             q.updatePageActiveStmt,
+		updatePageContentStmt:            q.updatePageContentStmt,
+		updateProductStmt:                q.updateProductStmt,
+		updateProductActiveStmt:          q.updateProductActiveStmt,
+		updateProductVariantStmt:         q.updateProductVariantStmt,
+		updateSessionStmt:                q.updateSessionStmt,
+		updateSettingStmt:                q.updateSettingStmt,
+		updateSubdomainStmt:              q.updateSubdomainStmt,
 	}
 }

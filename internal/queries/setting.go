@@ -389,16 +389,3 @@ func (q *SettingQueries) UpdateSettingByKey(ctx context.Context, setting *models
 	return sqliteQueries.UpdateSetting(ctx, params)
 }
 
-// buildPlaceholders generates database-appropriate placeholders for IN clauses
-func buildPlaceholders(count int) string {
-	if DBType() == "postgres" {
-		// PostgreSQL: $1, $2, $3
-		parts := make([]string, count)
-		for i := 0; i < count; i++ {
-			parts[i] = fmt.Sprintf("$%d", i+1)
-		}
-		return strings.Join(parts, ", ")
-	}
-	// SQLite: ?, ?, ?
-	return strings.Repeat("?, ", count-1) + "?"
-}

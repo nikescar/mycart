@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.bulkDeleteProductImagesStmt, err = db.PrepareContext(ctx, bulkDeleteProductImages); err != nil {
+		return nil, fmt.Errorf("error preparing query BulkDeleteProductImages: %w", err)
+	}
 	if q.countCartsStmt, err = db.PrepareContext(ctx, countCarts); err != nil {
 		return nil, fmt.Errorf("error preparing query CountCarts: %w", err)
 	}
@@ -147,6 +150,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getProductWithVariantsStmt, err = db.PrepareContext(ctx, getProductWithVariants); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductWithVariants: %w", err)
 	}
+	if q.getProductsWithImagesStmt, err = db.PrepareContext(ctx, getProductsWithImages); err != nil {
+		return nil, fmt.Errorf("error preparing query GetProductsWithImages: %w", err)
+	}
 	if q.getSessionStmt, err = db.PrepareContext(ctx, getSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetSession: %w", err)
 	}
@@ -245,6 +251,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.bulkDeleteProductImagesStmt != nil {
+		if cerr := q.bulkDeleteProductImagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing bulkDeleteProductImagesStmt: %w", cerr)
+		}
+	}
 	if q.countCartsStmt != nil {
 		if cerr := q.countCartsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing countCartsStmt: %w", cerr)
@@ -450,6 +461,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getProductWithVariantsStmt: %w", cerr)
 		}
 	}
+	if q.getProductsWithImagesStmt != nil {
+		if cerr := q.getProductsWithImagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getProductsWithImagesStmt: %w", cerr)
+		}
+	}
 	if q.getSessionStmt != nil {
 		if cerr := q.getSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getSessionStmt: %w", cerr)
@@ -644,6 +660,7 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                               DBTX
 	tx                               *sql.Tx
+	bulkDeleteProductImagesStmt      *sql.Stmt
 	countCartsStmt                   *sql.Stmt
 	countPagesStmt                   *sql.Stmt
 	countProductsStmt                *sql.Stmt
@@ -685,6 +702,7 @@ type Queries struct {
 	getProductImageStmt              *sql.Stmt
 	getProductOptionStmt             *sql.Stmt
 	getProductWithVariantsStmt       *sql.Stmt
+	getProductsWithImagesStmt        *sql.Stmt
 	getSessionStmt                   *sql.Stmt
 	getSettingByKeyStmt              *sql.Stmt
 	getSubdomainStmt                 *sql.Stmt
@@ -722,6 +740,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                               tx,
 		tx:                               tx,
+		bulkDeleteProductImagesStmt:      q.bulkDeleteProductImagesStmt,
 		countCartsStmt:                   q.countCartsStmt,
 		countPagesStmt:                   q.countPagesStmt,
 		countProductsStmt:                q.countProductsStmt,
@@ -763,6 +782,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getProductImageStmt:              q.getProductImageStmt,
 		getProductOptionStmt:             q.getProductOptionStmt,
 		getProductWithVariantsStmt:       q.getProductWithVariantsStmt,
+		getProductsWithImagesStmt:        q.getProductsWithImagesStmt,
 		getSessionStmt:                   q.getSessionStmt,
 		getSettingByKeyStmt:              q.getSettingByKeyStmt,
 		getSubdomainStmt:                 q.getSubdomainStmt,

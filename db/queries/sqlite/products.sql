@@ -94,3 +94,21 @@ RETURNING id, name, product_id, position, created;
 
 -- name: DeleteProductOption :exec
 DELETE FROM product_option WHERE id = ?;
+
+-- Advanced Product Queries
+
+-- name: BulkDeleteProductImages :exec
+DELETE FROM product_image
+WHERE product_id = ?;
+
+-- name: GetProductsWithImages :many
+SELECT
+    p.id as product_id,
+    p.name as product_name,
+    pi.id as image_id,
+    pi.name as image_name,
+    pi.ext as image_ext
+FROM product p
+LEFT JOIN product_image pi ON p.id = pi.product_id
+WHERE p.active = TRUE AND p.deleted = FALSE
+ORDER BY p.created DESC;

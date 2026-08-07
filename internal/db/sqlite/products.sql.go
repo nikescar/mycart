@@ -11,6 +11,18 @@ import (
 	"encoding/json"
 )
 
+const bulkDeleteProductImages = `-- name: BulkDeleteProductImages :exec
+
+DELETE FROM product_image
+WHERE product_id = ?
+`
+
+// Advanced Product Queries
+func (q *Queries) BulkDeleteProductImages(ctx context.Context, productID string) error {
+	_, err := q.exec(ctx, q.bulkDeleteProductImagesStmt, bulkDeleteProductImages, productID)
+	return err
+}
+
 const countProducts = `-- name: CountProducts :one
 SELECT COUNT(*) FROM product WHERE deleted = FALSE
 `
@@ -341,6 +353,56 @@ func (q *Queries) GetProductWithVariants(ctx context.Context, id string) ([]GetP
 			&i.VariantPriceSurcharge,
 			&i.VariantQuantity,
 			&i.VariantOptionValues,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getProductsWithImages = `-- name: GetProductsWithImages :many
+SELECT
+    p.id as product_id,
+    p.name as product_name,
+    pi.id as image_id,
+    pi.name as image_name,
+    pi.ext as image_ext
+FROM product p
+LEFT JOIN product_image pi ON p.id = pi.product_id
+WHERE p.active = TRUE AND p.deleted = FALSE
+ORDER BY p.created DESC
+`
+
+type GetProductsWithImagesRow struct {
+	ProductID   string         `json:"product_id"`
+	ProductName string         `json:"product_name"`
+	ImageID     sql.NullString `json:"image_id"`
+	ImageName   sql.NullString `json:"image_name"`
+	ImageExt    sql.NullString `json:"image_ext"`
+}
+
+func (q *Queries) GetProductsWithImages(ctx context.Context) ([]GetProductsWithImagesRow, error) {
+	rows, err := q.query(ctx, q.getProductsWithImagesStmt, getProductsWithImages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetProductsWithImagesRow{}
+	for rows.Next() {
+		var i GetProductsWithImagesRow
+		if err := rows.Scan(
+			&i.ProductID,
+			&i.ProductName,
+			&i.ImageID,
+			&i.ImageName,
+			&i.ImageExt,
 		); err != nil {
 			return nil, err
 		}

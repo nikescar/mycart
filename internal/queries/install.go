@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strconv"
 
+	"github.com/shurco/mycart/internal/db/postgres"
+	"github.com/shurco/mycart/internal/db/sqlite"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/pkg/security"
 )
@@ -13,13 +15,28 @@ import (
 // ErrAlreadyInstalled is returned by Install if the cart has already been initialized.
 var ErrAlreadyInstalled = errors.New("cart already installed")
 
-// IsInstalled reports whether the cart has completed first-time setup.
+// IsInstalled reports whether the cart has completed first-time setup using sqlc.
 func (q *InstallQueries) IsInstalled(ctx context.Context) (bool, error) {
-	var rawInstalled string
-	if err := q.DB.QueryRowContext(ctx, `SELECT value FROM setting WHERE key = 'installed'`).Scan(&rawInstalled); err != nil {
+	queries := getSQLCQueries()
+
+	var result interface{}
+	var err error
+
+	if DBType() == "postgres" {
+		pgQueries := queries.(*postgres.Queries)
+		result, err = pgQueries.GetSettingByKey(ctx, "installed")
+	} else {
+		sqliteQueries := queries.(*sqlite.Queries)
+		result, err = sqliteQueries.GetSettingByKey(ctx, "installed")
+	}
+
+	if err != nil {
 		return false, err
 	}
-	installed, _ := strconv.ParseBool(rawInstalled)
+
+	setting := toModelSetting(result)
+	valueStr, _ := setting.Value.(string)
+	installed, _ := strconv.ParseBool(valueStr)
 	return installed, nil
 }
 
@@ -30,7 +47,7 @@ type InstallQueries struct {
 	*sql.DB
 }
 
-// Install performs the installation process for the cart system.
+// Install performs the installation process for the cart system using sqlc.
 func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 	installed, err := q.IsInstalled(ctx)
 	if err != nil {
@@ -60,24 +77,29 @@ func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 		"jwt_secret": jwt_secret,
 	}
 
-	// Use database-appropriate placeholder syntax
-	// PostgreSQL uses $1, $2; SQLite uses ?, ?
-	var updateQuery string
-	if DBType() == "postgres" {
-		updateQuery = `UPDATE setting SET value = $1 WHERE key = $2`
-	} else {
-		updateQuery = `UPDATE setting SET value = ? WHERE key = ?`
-	}
-
-	stmt, err := tx.PrepareContext(ctx, updateQuery)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = stmt.Close() }()
+	queries := getSQLCQueries()
 
 	for key, value := range settings {
-		if _, err := stmt.ExecContext(ctx, value, key); err != nil {
-			return err
+		nullValue := sql.NullString{String: value, Valid: value != ""}
+
+		if DBType() == "postgres" {
+			pgQueries := queries.(*postgres.Queries)
+			params := postgres.UpdateSettingParams{
+				Value: nullValue,
+				Key:   key,
+			}
+			if err := pgQueries.UpdateSetting(ctx, params); err != nil {
+				return err
+			}
+		} else {
+			sqliteQueries := queries.(*sqlite.Queries)
+			params := sqlite.UpdateSettingParams{
+				Value: nullValue,
+				Key:   key,
+			}
+			if err := sqliteQueries.UpdateSetting(ctx, params); err != nil {
+				return err
+			}
 		}
 	}
 

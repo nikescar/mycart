@@ -117,6 +117,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getPageBySlugStmt, err = db.PrepareContext(ctx, getPageBySlug); err != nil {
 		return nil, fmt.Errorf("error preparing query GetPageBySlug: %w", err)
 	}
+	if q.getPasswordByEmailStmt, err = db.PrepareContext(ctx, getPasswordByEmail); err != nil {
+		return nil, fmt.Errorf("error preparing query GetPasswordByEmail: %w", err)
+	}
 	if q.getProductByIDStmt, err = db.PrepareContext(ctx, getProductByID); err != nil {
 		return nil, fmt.Errorf("error preparing query GetProductByID: %w", err)
 	}
@@ -373,6 +376,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getPageBySlugStmt: %w", cerr)
 		}
 	}
+	if q.getPasswordByEmailStmt != nil {
+		if cerr := q.getPasswordByEmailStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getPasswordByEmailStmt: %w", cerr)
+		}
+	}
 	if q.getProductByIDStmt != nil {
 		if cerr := q.getProductByIDStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getProductByIDStmt: %w", cerr)
@@ -603,6 +611,7 @@ type Queries struct {
 	getDigitalFileStmt             *sql.Stmt
 	getPageByIDStmt                *sql.Stmt
 	getPageBySlugStmt              *sql.Stmt
+	getPasswordByEmailStmt         *sql.Stmt
 	getProductByIDStmt             *sql.Stmt
 	getProductBySlugStmt           *sql.Stmt
 	getProductImageStmt            *sql.Stmt
@@ -672,6 +681,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getDigitalFileStmt:             q.getDigitalFileStmt,
 		getPageByIDStmt:                q.getPageByIDStmt,
 		getPageBySlugStmt:              q.getPageBySlugStmt,
+		getPasswordByEmailStmt:         q.getPasswordByEmailStmt,
 		getProductByIDStmt:             q.getProductByIDStmt,
 		getProductBySlugStmt:           q.getProductBySlugStmt,
 		getProductImageStmt:            q.getProductImageStmt,

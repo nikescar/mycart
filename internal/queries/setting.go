@@ -23,6 +23,22 @@ func getSQLCQueries() interface{} {
 	return dbAdapter.Queries()
 }
 
+// buildPlaceholders generates database-appropriate placeholders for IN clauses
+// DEPRECATED: This function is kept for backward compatibility with cart.go
+// New code should use sqlc queries instead
+func buildPlaceholders(count int) string {
+	if DBType() == "postgres" {
+		// PostgreSQL: $1, $2, $3
+		parts := make([]string, count)
+		for i := 0; i < count; i++ {
+			parts[i] = fmt.Sprintf("$%d", i+1)
+		}
+		return strings.Join(parts, ", ")
+	}
+	// SQLite: ?, ?, ?
+	return strings.Repeat("?, ", count-1) + "?"
+}
+
 // toModelSetting converts sqlc Setting to models.SettingName
 func toModelSetting(s interface{}) models.SettingName {
 	switch v := s.(type) {

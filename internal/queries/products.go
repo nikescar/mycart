@@ -175,7 +175,7 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 				product.id,
 				product.name,
 				product.brief,
-				product.desc,
+				product."desc",
 				product.slug,
 				product.amount,
 				product.quantity,
@@ -410,7 +410,7 @@ func (q *ProductQueries) AddProduct(ctx context.Context, product *models.Product
 
 	query := `
 			INSERT INTO product (
-					id, name, amount, slug, metadata, attribute, brief, desc, digital, active
+					id, name, amount, slug, metadata, attribute, brief, "desc", digital, active
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
 			RETURNING strftime('%s', created)
 	`
@@ -489,7 +489,7 @@ func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx *sql.Tx
 		UPDATE product SET
 			name = ?,
 			brief = ?,
-			desc = ?,
+			"desc" = ?,
 			slug = ?,
 			amount = ?,
 			quantity = ?,
@@ -954,7 +954,7 @@ func (q *ProductQueries) AddProductWithVariants(ctx context.Context, product *mo
 	// 1. Insert product
 	query := `
 		INSERT INTO product (
-			id, name, brief, desc, slug, amount, quantity, sku,
+			id, name, brief, "desc", slug, amount, quantity, sku,
 			has_variants, metadata, attribute, digital, active
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
@@ -1109,7 +1109,7 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 
 	// 1. Get product base data
 	query := `
-		SELECT id, name, brief, desc, slug, amount, quantity, sku,
+		SELECT id, name, brief, "desc", slug, amount, quantity, sku,
 		       has_variants, metadata, attribute, digital, active
 		FROM product
 		WHERE id = ? AND deleted = FALSE

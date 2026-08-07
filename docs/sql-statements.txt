@@ -1,0 +1,140 @@
+# SQL Statements Extract from internal/queries/*.go
+# Generated for sqlc migration audit
+
+## File: internal/queries/auth.go
+
+Line 18:
+SELECT key, value FROM setting WHERE key IN ('email', 'password')
+
+## File: internal/queries/cart.go
+
+Line 31:
+SELECT key, value FROM setting WHERE key IN (?)
+  Keys: stripe_active, paypal_active, spectrocoin_active, coinbase_active, portone_active
+
+Line 69-82 (PostgreSQL):
+SELECT id, email, amount_total, currency, payment_id, payment_status, payment_system,
+       EXTRACT(EPOCH FROM created)::bigint, EXTRACT(EPOCH FROM updated)::bigint
+FROM cart
+ORDER BY created DESC
+LIMIT $1 OFFSET $2
+
+Line 84-98 (SQLite):
+SELECT id, email, amount_total, currency, payment_id, payment_status, payment_system,
+       strftime('%s', created), strftime('%s', updated)
+FROM cart
+ORDER BY created DESC
+LIMIT ? OFFSET ?
+
+Line 170-330: Cart(id) - Complex JOIN query fetching cart with items
+Line 629-646: AddCart - INSERT or UPDATE
+Line 646-687: UpdateCart - UPDATE cart SET...
+Line 687-711: CartLetterPayment - Payment email data aggregation
+Line 711-740: CartLetterPurchase - Purchase email data aggregation
+
+## File: internal/queries/install.go
+
+Line 19:
+SELECT value FROM setting WHERE key = 'installed'
+
+Line 68-72:
+UPDATE setting SET value = $1 WHERE key = $2  (PostgreSQL)
+or
+UPDATE setting SET value = ? WHERE key = ?  (SQLite)
+
+## File: internal/queries/pages.go
+
+Line 22-31: IsPage(slug) - PageExists check
+Line 31-104: ListPages - Complex query with filters and counting
+Line 104-130: Page(slug) - GetPageBySlug
+Line 130-162: PageByID(id) - GetPageByID
+Line 162-183: AddPage - CreatePage
+Line 183-233: UpdatePage
+Line 233-240: DeletePage
+Line 240-249: UpdatePageContent
+Line 249-257: UpdatePageActive
+
+## File: internal/queries/products.go
+
+Line 26-170: ListProducts - Complex query with multiple filters
+  - Supports private/public filtering
+  - Supports ID filtering with IN clause
+  - Supports pagination
+  - Supports optional cartID join
+
+Line 170-398: Product(id) - GetProductByID with variant/option loading
+Line 398-445: AddProduct - CreateProduct with metadata
+Line 445-477: UpdateProduct - Complex UPDATE with JSON fields
+Line 477-497: Variant handling in product updates
+Line 568-667: DeleteProduct - Soft and hard delete variants
+Line 697-721: IsProduct check
+Line 721-742: UpdateActive - UpdateProductActive
+Line 742-814: ProductImages, AddImage, DeleteImage - Image management
+Line 892-970: ProductDigital - GetDigitalDataByProduct
+Line 970-1013: AddDigitalFile, AddDigitalData - Digital content operations
+Line 1013-1024: UpdateDigital, DeleteDigital
+Line 1075-1152: AddProductWithVariants - Transaction-based complex operation
+Line 1298-1394: GetProductWithVariants - Load product with all data
+Line 1394-1481: loadProductOptions, loadOptionValues - Option loading
+Line 1481-1594: loadProductVariants - Variant loading
+Line 1594-1660: GenerateUniqueSlug - Slug conflict resolution
+
+## File: internal/queries/queries.go
+
+Configuration only, no SQL statements
+
+## File: internal/queries/setting.go
+
+Line 177-198: GetSettingByGroup - Dynamic IN clause
+  FORMAT: SELECT key, value FROM setting WHERE key IN (?, ?, ?, ...)
+
+Line 238-272: UpdateSettingByGroup - UPSERT pattern
+  INSERT INTO setting (id, key, value) VALUES (?, ?, ?)
+  ON CONFLICT(key) DO UPDATE SET value = excluded.value
+
+Line 277-289: UpdatePassword - Two-step verification then update
+  Step 1: SELECT value FROM setting WHERE key = 'password'
+  Step 2: UPDATE setting SET value = ? WHERE key = 'password'
+
+Line 294-319: GetSettingByKey - Dynamic IN clause for multiple keys
+  FORMAT: SELECT id, key, value FROM setting WHERE key IN (?, ?, ...)
+
+Line 322-331: UpdateSettingByKey - Single setting update
+  PostgreSQL: UPDATE setting SET value = $1 WHERE key = $2
+  SQLite: UPDATE setting SET value = ? WHERE key = ?
+
+## File: internal/queries/session.go
+
+Line 13:
+SELECT value FROM session WHERE key = ? AND expires > ?
+
+Line 24:
+INSERT OR REPLACE INTO session (key, value, expires) VALUES (?, ?, ?)
+
+Line 30-31:
+UPDATE session SET value = ?, expires = ? WHERE key = ?
+
+Line 36-37:
+DELETE FROM session WHERE key = ?
+
+---
+
+## Summary Statistics
+
+Total Distinct SQL Operations: ~45+
+- Direct SQL Queries: ~35
+- Complex Transactions: 3
+- Data Aggregation (non-SQL): 2
+- Database-Specific Queries: 15+
+
+By Category:
+- SELECT queries: ~25
+- INSERT queries: ~8
+- UPDATE queries: ~8
+- DELETE queries: ~4
+- UPSERT patterns: ~2
+
+By Database Specificity:
+- PostgreSQL specific: 2 (EXTRACT EPOCH, $N placeholders)
+- SQLite specific: 2 (strftime, REPLACE pattern)
+- Common/Portable: ~35

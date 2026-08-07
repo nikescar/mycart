@@ -8,11 +8,48 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shurco/mycart/internal/db/postgres"
+	"github.com/shurco/mycart/internal/db/sqlite"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/security"
-	"github.com/shurco/mycart/pkg/strutil"
 )
+
+// getSQLCQueries returns the appropriate sqlc Queries based on DB type
+func getSQLCQueries() interface{} {
+	if dbAdapter == nil {
+		return nil
+	}
+	return dbAdapter.Queries()
+}
+
+// toModelSetting converts sqlc Setting to models.SettingName
+func toModelSetting(s interface{}) models.SettingName {
+	switch v := s.(type) {
+	case sqlite.Setting:
+		value := ""
+		if v.Value.Valid {
+			value = v.Value.String
+		}
+		return models.SettingName{
+			ID:    v.ID,
+			Key:   v.Key,
+			Value: value,
+		}
+	case postgres.Setting:
+		value := ""
+		if v.Value.Valid {
+			value = v.Value.String
+		}
+		return models.SettingName{
+			ID:    v.ID,
+			Key:   v.Key,
+			Value: value,
+		}
+	default:
+		return models.SettingName{}
+	}
+}
 
 // SettingQueries wraps a sql.DB connection allowing for easy querying and interaction
 // with the database related to application settings.
@@ -288,46 +325,68 @@ func (q *SettingQueries) UpdatePassword(ctx context.Context, password *models.Pa
 	return err
 }
 
-// GetSettingByKey retrieves a setting by its key from the database.
-// It accepts a context for cancellation and a string representing the key of the setting.
-// Returns a pointer to a SettingName model if found, or an error if not found or any other issue occurs.
+// GetSettingByKey retrieves settings by key using sqlc.
+// It accepts a context for cancellation and one or more keys.
+// Returns a map of settings or an error if not found or any other issue occurs.
 func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (map[string]models.SettingName, error) {
 	if len(key) == 0 {
 		return nil, errors.ErrSettingNotFound
 	}
 
-	// Build placeholder string based on database type
-	placeholders := buildPlaceholders(len(key))
-	query := fmt.Sprintf("SELECT id, key, value FROM setting WHERE key IN (%s)", placeholders)
-	rows, err := q.DB.QueryContext(ctx, query, strutil.ToAny(key...)...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
 	settings := map[string]models.SettingName{}
-	for rows.Next() {
-		var key string
-		setting := models.SettingName{}
-		if err := rows.Scan(&setting.ID, &key, &setting.Value); err != nil {
+	queries := getSQLCQueries()
+
+	// Call sqlc query for each key
+	for _, k := range key {
+		var result interface{}
+		var err error
+
+		if DBType() == "postgres" {
+			pgQueries := queries.(*postgres.Queries)
+			result, err = pgQueries.GetSettingByKey(ctx, k)
+		} else {
+			sqliteQueries := queries.(*sqlite.Queries)
+			result, err = sqliteQueries.GetSettingByKey(ctx, k)
+		}
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				continue // Key not found, skip
+			}
 			return nil, err
 		}
-		settings[key] = setting
+
+		setting := toModelSetting(result)
+		setting.Key = k
+		settings[k] = setting
 	}
 
 	return settings, nil
 }
 
-// UpdateSettingByKey updates the value of a setting in the database based on the provided key.
+// UpdateSettingByKey updates the value of a setting using sqlc.
 func (q *SettingQueries) UpdateSettingByKey(ctx context.Context, setting *models.SettingName) error {
-	var query string
+	queries := getSQLCQueries()
+
+	// Convert setting.Value to string
+	valueStr := fmt.Sprint(setting.Value)
+	value := sql.NullString{String: valueStr, Valid: valueStr != ""}
+
 	if DBType() == "postgres" {
-		query = `UPDATE setting SET value = $1 WHERE key = $2`
-	} else {
-		query = `UPDATE setting SET value = ? WHERE key = ?`
+		pgQueries := queries.(*postgres.Queries)
+		params := postgres.UpdateSettingParams{
+			Value: value,
+			Key:   setting.Key,
+		}
+		return pgQueries.UpdateSetting(ctx, params)
 	}
-	_, err := q.DB.ExecContext(ctx, query, setting.Value, setting.Key)
-	return err
+
+	sqliteQueries := queries.(*sqlite.Queries)
+	params := sqlite.UpdateSettingParams{
+		Value: value,
+		Key:   setting.Key,
+	}
+	return sqliteQueries.UpdateSetting(ctx, params)
 }
 
 // buildPlaceholders generates database-appropriate placeholders for IN clauses

@@ -408,12 +408,22 @@ func (q *ProductQueries) AddProduct(ctx context.Context, product *models.Product
 		return nil, err
 	}
 
-	query := `
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			INSERT INTO product (
+					id, name, amount, slug, metadata, attribute, brief, "desc", digital, active
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, FALSE)
+			RETURNING EXTRACT(EPOCH FROM created)::bigint
+		`
+	} else {
+		query = `
 			INSERT INTO product (
 					id, name, amount, slug, metadata, attribute, brief, "desc", digital, active
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
 			RETURNING strftime('%s', created)
-	`
+		`
+	}
 	stmt, err := q.DB.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -485,22 +495,43 @@ func (q *ProductQueries) marshalProductJSON(product *models.Product) (metadata, 
 
 // updateProductMainFields executes the UPDATE statement for main product fields
 func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx *sql.Tx, product *models.Product, metadata, attributes, seo []byte) error {
-	stmt, err := tx.PrepareContext(ctx, `
-		UPDATE product SET
-			name = ?,
-			brief = ?,
-			"desc" = ?,
-			slug = ?,
-			amount = ?,
-			quantity = ?,
-			sku = ?,
-			has_variants = ?,
-			metadata = ?,
-			attribute = ?,
-			seo = ?,
-			updated = datetime('now')
-		WHERE id = ?
-	`)
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			UPDATE product SET
+				name = $1,
+				brief = $2,
+				"desc" = $3,
+				slug = $4,
+				amount = $5,
+				quantity = $6,
+				sku = $7,
+				has_variants = $8,
+				metadata = $9,
+				attribute = $10,
+				seo = $11,
+				updated = NOW()
+			WHERE id = $12
+		`
+	} else {
+		query = `
+			UPDATE product SET
+				name = ?,
+				brief = ?,
+				"desc" = ?,
+				slug = ?,
+				amount = ?,
+				quantity = ?,
+				sku = ?,
+				has_variants = ?,
+				metadata = ?,
+				attribute = ?,
+				seo = ?,
+				updated = datetime('now')
+			WHERE id = ?
+		`
+	}
+	stmt, err := tx.PrepareContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("prepare update statement: %w", err)
 	}
@@ -535,15 +566,38 @@ func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx *sql.Tx
 
 // syncProductVariants handles all variant-related CRUD operations
 func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, product *models.Product) error {
+	// Build database-specific queries
+	var (
+		deleteOptionQuery  string
+		deleteVariantQuery string
+		insertOptionQuery  string
+		insertValueQuery   string
+		insertVariantQuery string
+	)
+
+	if DBType() == "postgres" {
+		deleteOptionQuery = `DELETE FROM product_option WHERE product_id = $1`
+		deleteVariantQuery = `DELETE FROM product_variant WHERE product_id = $1`
+		insertOptionQuery = `INSERT INTO product_option (id, product_id, name, position) VALUES ($1, $2, $3, $4)`
+		insertValueQuery = `INSERT INTO product_option_value (id, option_id, value, position) VALUES ($1, $2, $3, $4)`
+		insertVariantQuery = `INSERT INTO product_variant (id, product_id, sku, price_surcharge, quantity, option_values, active) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	} else {
+		deleteOptionQuery = `DELETE FROM product_option WHERE product_id = ?`
+		deleteVariantQuery = `DELETE FROM product_variant WHERE product_id = ?`
+		insertOptionQuery = `INSERT INTO product_option (id, product_id, name, position) VALUES (?, ?, ?, ?)`
+		insertValueQuery = `INSERT INTO product_option_value (id, option_id, value, position) VALUES (?, ?, ?, ?)`
+		insertVariantQuery = `INSERT INTO product_variant (id, product_id, sku, price_surcharge, quantity, option_values, active) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	}
+
 	if product.HasVariants {
 		// Delete existing options (cascades to option values)
-		_, err := tx.ExecContext(ctx, `DELETE FROM product_option WHERE product_id = ?`, product.ID)
+		_, err := tx.ExecContext(ctx, deleteOptionQuery, product.ID)
 		if err != nil {
 			return fmt.Errorf("delete options: %w", err)
 		}
 
 		// Delete existing variants
-		_, err = tx.ExecContext(ctx, `DELETE FROM product_variant WHERE product_id = ?`, product.ID)
+		_, err = tx.ExecContext(ctx, deleteVariantQuery, product.ID)
 		if err != nil {
 			return fmt.Errorf("delete variants: %w", err)
 		}
@@ -552,8 +606,7 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 		for _, option := range product.Options {
 			optionID := security.RandomString()
 
-			_, err = tx.ExecContext(ctx,
-				`INSERT INTO product_option (id, product_id, name, position) VALUES (?, ?, ?, ?)`,
+			_, err = tx.ExecContext(ctx, insertOptionQuery,
 				optionID, product.ID, option.Name, option.Position,
 			)
 			if err != nil {
@@ -563,8 +616,7 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 			// Insert option values
 			for _, value := range option.Values {
 				valueID := security.RandomString()
-				_, err = tx.ExecContext(ctx,
-					`INSERT INTO product_option_value (id, option_id, value, position) VALUES (?, ?, ?, ?)`,
+				_, err = tx.ExecContext(ctx, insertValueQuery,
 					valueID, optionID, value.Value, value.Position,
 				)
 				if err != nil {
@@ -589,8 +641,7 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 				skuValue = sql.NullString{String: variant.SKU, Valid: true}
 			}
 
-			_, err = tx.ExecContext(ctx,
-				`INSERT INTO product_variant (id, product_id, sku, price_surcharge, quantity, option_values, active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			_, err = tx.ExecContext(ctx, insertVariantQuery,
 				variantID, product.ID, skuValue, variant.PriceSurcharge, variant.Quantity, string(optionValuesJSON), variant.Active,
 			)
 			if err != nil {
@@ -599,11 +650,11 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 		}
 	} else {
 		// If has_variants is false, clean up any existing variant data
-		_, err := tx.ExecContext(ctx, `DELETE FROM product_option WHERE product_id = ?`, product.ID)
+		_, err := tx.ExecContext(ctx, deleteOptionQuery, product.ID)
 		if err != nil {
 			return fmt.Errorf("cleanup options: %w", err)
 		}
-		_, err = tx.ExecContext(ctx, `DELETE FROM product_variant WHERE product_id = ?`, product.ID)
+		_, err = tx.ExecContext(ctx, deleteVariantQuery, product.ID)
 		if err != nil {
 			return fmt.Errorf("cleanup variants: %w", err)
 		}
@@ -614,7 +665,13 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 
 // DeleteProduct removes a product from the database based on its ID.
 func (q *ProductQueries) DeleteProduct(ctx context.Context, id string) error {
-	_, err := q.DB.ExecContext(ctx, `DELETE FROM product WHERE id = ?`, id)
+	var query string
+	if DBType() == "postgres" {
+		query = `DELETE FROM product WHERE id = $1`
+	} else {
+		query = `DELETE FROM product WHERE id = ?`
+	}
+	_, err := q.DB.ExecContext(ctx, query, id)
 	return err
 }
 
@@ -639,12 +696,22 @@ func publicProductFilter(cartID string) (string, []any) {
 // IsProduct checks if a product with the given slug exists and is active.
 func (q *ProductQueries) IsProduct(ctx context.Context, slug string) bool {
 	var exists bool
-	query := `
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			SELECT EXISTS (
+				SELECT 1 FROM product
+				WHERE product.slug = $1 AND product.deleted = FALSE AND product.active = TRUE
+			)
+		`
+	} else {
+		query = `
 			SELECT EXISTS (
 				SELECT 1 FROM product
 				WHERE product.slug = ? AND product.deleted = 0 AND product.active = 1
 			)
-	`
+		`
+	}
 	err := q.DB.QueryRowContext(ctx, query, slug).Scan(&exists)
 	return err == nil && exists
 }
@@ -652,7 +719,12 @@ func (q *ProductQueries) IsProduct(ctx context.Context, slug string) bool {
 // UpdateActive toggles the 'active' status of a product and updates its 'updated' timestamp.
 // It takes a context and an ID as arguments, and returns an error if the operation fails.
 func (q *ProductQueries) UpdateActive(ctx context.Context, id string) error {
-	query := `UPDATE product SET active = NOT active, updated = datetime('now') WHERE id = ?`
+	var query string
+	if DBType() == "postgres" {
+		query = `UPDATE product SET active = NOT active, updated = NOW() WHERE id = $1`
+	} else {
+		query = `UPDATE product SET active = NOT active, updated = datetime('now') WHERE id = ?`
+	}
 	_, err := q.DB.ExecContext(ctx, query, id)
 	return err
 }
@@ -677,7 +749,12 @@ func (q *ProductQueries) ProductImages(ctx context.Context, id string) (*[]model
 
 // fetchProductImages performs database query to get image(s) for a product
 func (q *ProductQueries) fetchProductImages(ctx context.Context, id string) ([]productImage, error) {
-	query := `SELECT id, name, ext FROM product_image WHERE product_id = ?`
+	var query string
+	if DBType() == "postgres" {
+		query = `SELECT id, name, ext FROM product_image WHERE product_id = $1`
+	} else {
+		query = `SELECT id, name, ext FROM product_image WHERE product_id = ?`
+	}
 	rows, err := q.DB.QueryContext(ctx, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -719,7 +796,12 @@ func (q *ProductQueries) AddImage(ctx context.Context, productID, fileUUID, file
 		Ext:  fileExt,
 	}
 
-	query := `INSERT INTO product_image (id, product_id, name, ext, orig_name) VALUES (?, ?, ?, ?, ?)`
+	var query string
+	if DBType() == "postgres" {
+		query = `INSERT INTO product_image (id, product_id, name, ext, orig_name) VALUES ($1, $2, $3, $4, $5)`
+	} else {
+		query = `INSERT INTO product_image (id, product_id, name, ext, orig_name) VALUES (?, ?, ?, ?, ?)`
+	}
 	_, err := q.DB.ExecContext(ctx, query, file.ID, productID, file.Name, file.Ext, origName)
 	if err != nil {
 		return nil, err
@@ -758,17 +840,22 @@ func (q *ProductQueries) deleteImageRecord(ctx context.Context, productID, image
 
 	// Get image info before deletion
 	info := &imageInfo{}
-	err = tx.QueryRowContext(ctx,
-		`SELECT name, ext FROM product_image WHERE id = ?`,
-		imageID).Scan(&info.name, &info.ext)
+	var selectQuery, deleteQuery string
+	if DBType() == "postgres" {
+		selectQuery = `SELECT name, ext FROM product_image WHERE id = $1`
+		deleteQuery = `DELETE FROM product_image WHERE id = $1 AND product_id = $2`
+	} else {
+		selectQuery = `SELECT name, ext FROM product_image WHERE id = ?`
+		deleteQuery = `DELETE FROM product_image WHERE id = ? AND product_id = ?`
+	}
+
+	err = tx.QueryRowContext(ctx, selectQuery, imageID).Scan(&info.name, &info.ext)
 	if err != nil {
 		return nil, err
 	}
 
 	// Delete the database record
-	if _, err := tx.ExecContext(ctx,
-		`DELETE FROM product_image WHERE id = ? AND product_id = ?`,
-		imageID, productID); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteQuery, imageID, productID); err != nil {
 		return nil, err
 	}
 
@@ -805,8 +892,21 @@ func (q *ProductQueries) deleteImageFiles(name, ext string) error {
 func (q *ProductQueries) ProductDigital(ctx context.Context, productID string) (*models.Digital, error) {
 	digital := &models.Digital{}
 
-	query := `
-			SELECT 
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			SELECT
+					p.digital,
+					df.id, df.name, df.ext,
+					dd.id, dd.content, dd.cart_id
+			FROM product p
+			LEFT JOIN digital_file df ON p.id = df.product_id
+			LEFT JOIN digital_data dd ON p.id = dd.product_id
+			WHERE p.id = $1
+		`
+	} else {
+		query = `
+			SELECT
 					p.digital,
 					df.id, df.name, df.ext,
 					dd.id, dd.content, dd.cart_id
@@ -814,7 +914,8 @@ func (q *ProductQueries) ProductDigital(ctx context.Context, productID string) (
 			LEFT JOIN digital_file df ON p.id = df.product_id
 			LEFT JOIN digital_data dd ON p.id = dd.product_id
 			WHERE p.id = ?
-	`
+		`
+	}
 
 	rows, err := q.DB.QueryContext(ctx, query, productID)
 	if err != nil {
@@ -873,7 +974,12 @@ func (q *ProductQueries) AddDigitalFile(ctx context.Context, productID, fileUUID
 		Ext:  fileExt,
 	}
 
-	query := `INSERT INTO digital_file (id, product_id, name, ext, orig_name) VALUES (?, ?, ?, ?, ?)`
+	var query string
+	if DBType() == "postgres" {
+		query = `INSERT INTO digital_file (id, product_id, name, ext, orig_name) VALUES ($1, $2, $3, $4, $5)`
+	} else {
+		query = `INSERT INTO digital_file (id, product_id, name, ext, orig_name) VALUES (?, ?, ?, ?, ?)`
+	}
 	_, err := q.DB.ExecContext(ctx, query, file.ID, productID, file.Name, file.Ext, origName)
 	if err != nil {
 		return nil, err
@@ -889,7 +995,12 @@ func (q *ProductQueries) AddDigitalData(ctx context.Context, productID, content 
 		Content: content,
 	}
 
-	query := `INSERT INTO digital_data (id, product_id, content) VALUES (?, ?, ?)`
+	var query string
+	if DBType() == "postgres" {
+		query = `INSERT INTO digital_data (id, product_id, content) VALUES ($1, $2, $3)`
+	} else {
+		query = `INSERT INTO digital_data (id, product_id, content) VALUES (?, ?, ?)`
+	}
 	_, err := q.DB.ExecContext(ctx, query, file.ID, productID, file.Content)
 	if err != nil {
 		return nil, err
@@ -900,7 +1011,12 @@ func (q *ProductQueries) AddDigitalData(ctx context.Context, productID, content 
 
 // UpdateDigital updates the content of a digital data record in the database.
 func (q *ProductQueries) UpdateDigital(ctx context.Context, digital *models.Data) error {
-	query := `UPDATE digital_data SET content = ? WHERE id = ?`
+	var query string
+	if DBType() == "postgres" {
+		query = `UPDATE digital_data SET content = $1 WHERE id = $2`
+	} else {
+		query = `UPDATE digital_data SET content = ? WHERE id = ?`
+	}
 	_, err := q.DB.ExecContext(ctx, query, digital.Content, digital.ID)
 	return err
 }
@@ -909,22 +1025,35 @@ func (q *ProductQueries) DeleteDigital(ctx context.Context, productID, digitalID
 	var digitalType string
 	var name, ext sql.NullString
 
-	query := `
-				SELECT p.digital, df.name, df.ext
-				FROM product p
-				LEFT JOIN digital_file df ON df.id = ? AND df.product_id = p.id
-				WHERE p.id = ?
+	var selectQuery, deleteFileQuery, deleteDataQuery string
+	if DBType() == "postgres" {
+		selectQuery = `
+			SELECT p.digital, df.name, df.ext
+			FROM product p
+			LEFT JOIN digital_file df ON df.id = $1 AND df.product_id = p.id
+			WHERE p.id = $2
 		`
+		deleteFileQuery = `DELETE FROM digital_file WHERE id = $1 AND product_id = $2`
+		deleteDataQuery = `DELETE FROM digital_data WHERE id = $1 AND product_id = $2`
+	} else {
+		selectQuery = `
+			SELECT p.digital, df.name, df.ext
+			FROM product p
+			LEFT JOIN digital_file df ON df.id = ? AND df.product_id = p.id
+			WHERE p.id = ?
+		`
+		deleteFileQuery = `DELETE FROM digital_file WHERE id = ? AND product_id = ?`
+		deleteDataQuery = `DELETE FROM digital_data WHERE id = ? AND product_id = ?`
+	}
 
-	err := q.DB.QueryRowContext(ctx, query, digitalID, productID).Scan(&digitalType, &name, &ext)
+	err := q.DB.QueryRowContext(ctx, selectQuery, digitalID, productID).Scan(&digitalType, &name, &ext)
 	if err != nil {
 		return err
 	}
 
 	switch digitalType {
 	case "file":
-		query = `DELETE FROM digital_file WHERE id = ? AND product_id = ?`
-		if _, err := q.DB.ExecContext(ctx, query, digitalID, productID); err != nil {
+		if _, err := q.DB.ExecContext(ctx, deleteFileQuery, digitalID, productID); err != nil {
 			return fmt.Errorf("deleting from digital_file: %w", err)
 		}
 
@@ -934,8 +1063,7 @@ func (q *ProductQueries) DeleteDigital(ctx context.Context, productID, digitalID
 		}
 
 	case "data":
-		query = `DELETE FROM digital_data WHERE id = ? AND product_id = ?`
-		if _, err := q.DB.ExecContext(ctx, query, digitalID, productID); err != nil {
+		if _, err := q.DB.ExecContext(ctx, deleteDataQuery, digitalID, productID); err != nil {
 			return fmt.Errorf("deleting from digital_data: %w", err)
 		}
 	}
@@ -952,12 +1080,22 @@ func (q *ProductQueries) AddProductWithVariants(ctx context.Context, product *mo
 	defer tx.Rollback()
 
 	// 1. Insert product
-	query := `
-		INSERT INTO product (
-			id, name, brief, "desc", slug, amount, quantity, sku,
-			has_variants, metadata, attribute, digital, active
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			INSERT INTO product (
+				id, name, brief, "desc", slug, amount, quantity, sku,
+				has_variants, metadata, attribute, digital, active
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		`
+	} else {
+		query = `
+			INSERT INTO product (
+				id, name, brief, "desc", slug, amount, quantity, sku,
+				has_variants, metadata, attribute, digital, active
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`
+	}
 
 	metadata, err := json.Marshal(product.Metadata)
 	if err != nil {
@@ -1012,11 +1150,21 @@ func (q *ProductQueries) AddProductWithVariants(ctx context.Context, product *mo
 
 // insertProductImages inserts all product images within a transaction
 func (q *ProductQueries) insertProductImages(ctx context.Context, tx *sql.Tx, productID string, images []models.File) error {
-	for i, img := range images {
-		_, err := tx.ExecContext(ctx, `
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			INSERT INTO product_image (id, product_id, name, ext, orig_name, position)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`
+	} else {
+		query = `
 			INSERT INTO product_image (id, product_id, name, ext, orig_name, position)
 			VALUES (?, ?, ?, ?, ?, ?)
-		`, img.ID, productID, img.Name, img.Ext, img.OrigName, i)
+		`
+	}
+
+	for i, img := range images {
+		_, err := tx.ExecContext(ctx, query, img.ID, productID, img.Name, img.Ext, img.OrigName, i)
 		if err != nil {
 			return fmt.Errorf("insert image %d: %w", i, err)
 		}
@@ -1026,20 +1174,35 @@ func (q *ProductQueries) insertProductImages(ctx context.Context, tx *sql.Tx, pr
 
 // insertProductOptions inserts options and their values within a transaction
 func (q *ProductQueries) insertProductOptions(ctx context.Context, tx *sql.Tx, productID string, options []models.ProductOption) error {
-	for _, option := range options {
-		_, err := tx.ExecContext(ctx, `
+	var optionQuery, valueQuery string
+	if DBType() == "postgres" {
+		optionQuery = `
+			INSERT INTO product_option (id, product_id, name, position)
+			VALUES ($1, $2, $3, $4)
+		`
+		valueQuery = `
+			INSERT INTO product_option_value (id, option_id, value, position)
+			VALUES ($1, $2, $3, $4)
+		`
+	} else {
+		optionQuery = `
 			INSERT INTO product_option (id, product_id, name, position)
 			VALUES (?, ?, ?, ?)
-		`, option.ID, productID, option.Name, option.Position)
+		`
+		valueQuery = `
+			INSERT INTO product_option_value (id, option_id, value, position)
+			VALUES (?, ?, ?, ?)
+		`
+	}
+
+	for _, option := range options {
+		_, err := tx.ExecContext(ctx, optionQuery, option.ID, productID, option.Name, option.Position)
 		if err != nil {
 			return fmt.Errorf("insert option %s: %w", option.Name, err)
 		}
 
 		for _, value := range option.Values {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO product_option_value (id, option_id, value, position)
-				VALUES (?, ?, ?, ?)
-			`, value.ID, option.ID, value.Value, value.Position)
+			_, err = tx.ExecContext(ctx, valueQuery, value.ID, option.ID, value.Value, value.Position)
 			if err != nil {
 				return fmt.Errorf("insert option value %s: %w", value.Value, err)
 			}
@@ -1050,6 +1213,49 @@ func (q *ProductQueries) insertProductOptions(ctx context.Context, tx *sql.Tx, p
 
 // insertProductVariants inserts variants with relationships and images within a transaction
 func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, product *models.Product) error {
+	var variantQuery, selectQuery, relationQuery, imageQuery string
+	if DBType() == "postgres" {
+		variantQuery = `
+			INSERT INTO product_variant (
+				id, product_id, sku, price_surcharge, quantity, option_values, active
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`
+		selectQuery = `
+			SELECT pov.id
+			FROM product_option_value pov
+			JOIN product_option po ON pov.option_id = po.id
+			WHERE po.product_id = $1 AND po.name = $2 AND pov.value = $3
+		`
+		relationQuery = `
+			INSERT INTO product_variant_option (variant_id, option_value_id)
+			VALUES ($1, $2)
+		`
+		imageQuery = `
+			INSERT INTO product_variant_image (id, variant_id, name, ext, orig_name, position)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`
+	} else {
+		variantQuery = `
+			INSERT INTO product_variant (
+				id, product_id, sku, price_surcharge, quantity, option_values, active
+			) VALUES (?, ?, ?, ?, ?, ?, ?)
+		`
+		selectQuery = `
+			SELECT pov.id
+			FROM product_option_value pov
+			JOIN product_option po ON pov.option_id = po.id
+			WHERE po.product_id = ? AND po.name = ? AND pov.value = ?
+		`
+		relationQuery = `
+			INSERT INTO product_variant_option (variant_id, option_value_id)
+			VALUES (?, ?)
+		`
+		imageQuery = `
+			INSERT INTO product_variant_image (id, variant_id, name, ext, orig_name, position)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`
+	}
+
 	for _, variant := range product.Variants {
 		// Marshal option values to JSON
 		optionValuesJSON, err := json.Marshal(variant.OptionValues)
@@ -1057,11 +1263,7 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 			return fmt.Errorf("marshal option values: %w", err)
 		}
 
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO product_variant (
-				id, product_id, sku, price_surcharge, quantity, option_values, active
-			) VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, variant.ID, product.ID, variant.SKU, variant.PriceSurcharge, variant.Quantity, string(optionValuesJSON), variant.Active)
+		_, err = tx.ExecContext(ctx, variantQuery, variant.ID, product.ID, variant.SKU, variant.PriceSurcharge, variant.Quantity, string(optionValuesJSON), variant.Active)
 		if err != nil {
 			return fmt.Errorf("insert variant %s: %w", variant.SKU, err)
 		}
@@ -1070,20 +1272,12 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 		for optionName, optionValue := range variant.OptionValues {
 			// Find the option value ID
 			var optionValueID string
-			err = tx.QueryRowContext(ctx, `
-				SELECT pov.id
-				FROM product_option_value pov
-				JOIN product_option po ON pov.option_id = po.id
-				WHERE po.product_id = ? AND po.name = ? AND pov.value = ?
-			`, product.ID, optionName, optionValue).Scan(&optionValueID)
+			err = tx.QueryRowContext(ctx, selectQuery, product.ID, optionName, optionValue).Scan(&optionValueID)
 			if err != nil {
 				return fmt.Errorf("find option value ID for %s=%s: %w", optionName, optionValue, err)
 			}
 
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO product_variant_option (variant_id, option_value_id)
-				VALUES (?, ?)
-			`, variant.ID, optionValueID)
+			_, err = tx.ExecContext(ctx, relationQuery, variant.ID, optionValueID)
 			if err != nil {
 				return fmt.Errorf("insert variant-option relationship: %w", err)
 			}
@@ -1091,10 +1285,7 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 
 		// Insert variant images
 		for i, img := range variant.Images {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO product_variant_image (id, variant_id, name, ext, orig_name, position)
-				VALUES (?, ?, ?, ?, ?, ?)
-			`, img.ID, variant.ID, img.Name, img.Ext, img.OrigName, i)
+			_, err = tx.ExecContext(ctx, imageQuery, img.ID, variant.ID, img.Name, img.Ext, img.OrigName, i)
 			if err != nil {
 				return fmt.Errorf("insert variant image %d: %w", i, err)
 			}
@@ -1108,12 +1299,22 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 	product := &models.Product{}
 
 	// 1. Get product base data
-	query := `
-		SELECT id, name, brief, "desc", slug, amount, quantity, sku,
-		       has_variants, metadata, attribute, digital, active
-		FROM product
-		WHERE id = ? AND deleted = FALSE
-	`
+	var query string
+	if DBType() == "postgres" {
+		query = `
+			SELECT id, name, brief, "desc", slug, amount, quantity, sku,
+			       has_variants, metadata, attribute, digital, active
+			FROM product
+			WHERE id = $1 AND deleted = FALSE
+		`
+	} else {
+		query = `
+			SELECT id, name, brief, "desc", slug, amount, quantity, sku,
+			       has_variants, metadata, attribute, digital, active
+			FROM product
+			WHERE id = ? AND deleted = FALSE
+		`
+	}
 
 	var metadata, attributes string
 	var digitalType sql.NullString
@@ -1149,12 +1350,24 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 	}
 
 	// 2. Get product images
-	imageRows, err := q.DB.QueryContext(ctx, `
-		SELECT id, name, ext, orig_name
-		FROM product_image
-		WHERE product_id = ?
-		ORDER BY position
-	`, productID)
+	var imageQuery string
+	if DBType() == "postgres" {
+		imageQuery = `
+			SELECT id, name, ext, orig_name
+			FROM product_image
+			WHERE product_id = $1
+			ORDER BY position
+		`
+	} else {
+		imageQuery = `
+			SELECT id, name, ext, orig_name
+			FROM product_image
+			WHERE product_id = ?
+			ORDER BY position
+		`
+	}
+
+	imageRows, err := q.DB.QueryContext(ctx, imageQuery, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query product images: %w", err)
 	}
@@ -1180,12 +1393,24 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 // loadProductOptions loads options, option values, and variants for a product
 func (q *ProductQueries) loadProductOptions(ctx context.Context, product *models.Product) (*models.Product, error) {
 	// Get options
-	optionRows, err := q.DB.QueryContext(ctx, `
-		SELECT id, name, position
-		FROM product_option
-		WHERE product_id = ?
-		ORDER BY position
-	`, product.ID)
+	var optionQuery string
+	if DBType() == "postgres" {
+		optionQuery = `
+			SELECT id, name, position
+			FROM product_option
+			WHERE product_id = $1
+			ORDER BY position
+		`
+	} else {
+		optionQuery = `
+			SELECT id, name, position
+			FROM product_option
+			WHERE product_id = ?
+			ORDER BY position
+		`
+	}
+
+	optionRows, err := q.DB.QueryContext(ctx, optionQuery, product.ID)
 	if err != nil {
 		return nil, fmt.Errorf("query options: %w", err)
 	}
@@ -1216,13 +1441,25 @@ func (q *ProductQueries) loadProductOptions(ctx context.Context, product *models
 
 // loadOptionValues loads values for all product options
 func (q *ProductQueries) loadOptionValues(ctx context.Context, options *[]models.ProductOption) error {
-	for i := range *options {
-		valueRows, err := q.DB.QueryContext(ctx, `
+	var valueQuery string
+	if DBType() == "postgres" {
+		valueQuery = `
+			SELECT id, value, position
+			FROM product_option_value
+			WHERE option_id = $1
+			ORDER BY position
+		`
+	} else {
+		valueQuery = `
 			SELECT id, value, position
 			FROM product_option_value
 			WHERE option_id = ?
 			ORDER BY position
-		`, (*options)[i].ID)
+		`
+	}
+
+	for i := range *options {
+		valueRows, err := q.DB.QueryContext(ctx, valueQuery, (*options)[i].ID)
 		if err != nil {
 			return fmt.Errorf("query option values: %w", err)
 		}
@@ -1242,11 +1479,22 @@ func (q *ProductQueries) loadOptionValues(ctx context.Context, options *[]models
 
 // loadProductVariants loads all variants with their option values and images
 func (q *ProductQueries) loadProductVariants(ctx context.Context, productID string) ([]models.ProductVariant, error) {
-	variantRows, err := q.DB.QueryContext(ctx, `
-		SELECT id, sku, price_surcharge, quantity, active
-		FROM product_variant
-		WHERE product_id = ?
-	`, productID)
+	var variantQuery string
+	if DBType() == "postgres" {
+		variantQuery = `
+			SELECT id, sku, price_surcharge, quantity, active
+			FROM product_variant
+			WHERE product_id = $1
+		`
+	} else {
+		variantQuery = `
+			SELECT id, sku, price_surcharge, quantity, active
+			FROM product_variant
+			WHERE product_id = ?
+		`
+	}
+
+	variantRows, err := q.DB.QueryContext(ctx, variantQuery, productID)
 	if err != nil {
 		return nil, fmt.Errorf("query variants: %w", err)
 	}
@@ -1269,13 +1517,26 @@ func (q *ProductQueries) loadProductVariants(ctx context.Context, productID stri
 		}
 
 		// Get variant option values
-		optValueRows, err := q.DB.QueryContext(ctx, `
-			SELECT po.name, pov.value
-			FROM product_variant_option pvo
-			JOIN product_option_value pov ON pvo.option_value_id = pov.id
-			JOIN product_option po ON pov.option_id = po.id
-			WHERE pvo.variant_id = ?
-		`, variant.ID)
+		var optValueQuery string
+		if DBType() == "postgres" {
+			optValueQuery = `
+				SELECT po.name, pov.value
+				FROM product_variant_option pvo
+				JOIN product_option_value pov ON pvo.option_value_id = pov.id
+				JOIN product_option po ON pov.option_id = po.id
+				WHERE pvo.variant_id = $1
+			`
+		} else {
+			optValueQuery = `
+				SELECT po.name, pov.value
+				FROM product_variant_option pvo
+				JOIN product_option_value pov ON pvo.option_value_id = pov.id
+				JOIN product_option po ON pov.option_id = po.id
+				WHERE pvo.variant_id = ?
+			`
+		}
+
+		optValueRows, err := q.DB.QueryContext(ctx, optValueQuery, variant.ID)
 		if err != nil {
 			return nil, fmt.Errorf("query variant option values: %w", err)
 		}
@@ -1291,12 +1552,24 @@ func (q *ProductQueries) loadProductVariants(ctx context.Context, productID stri
 		optValueRows.Close()
 
 		// Get variant images
-		imgRows, err := q.DB.QueryContext(ctx, `
-			SELECT id, name, ext, orig_name
-			FROM product_variant_image
-			WHERE variant_id = ?
-			ORDER BY position
-		`, variant.ID)
+		var imgQuery string
+		if DBType() == "postgres" {
+			imgQuery = `
+				SELECT id, name, ext, orig_name
+				FROM product_variant_image
+				WHERE variant_id = $1
+				ORDER BY position
+			`
+		} else {
+			imgQuery = `
+				SELECT id, name, ext, orig_name
+				FROM product_variant_image
+				WHERE variant_id = ?
+				ORDER BY position
+			`
+		}
+
+		imgRows, err := q.DB.QueryContext(ctx, imgQuery, variant.ID)
 		if err != nil {
 			return nil, fmt.Errorf("query variant images: %w", err)
 		}

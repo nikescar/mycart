@@ -27,7 +27,8 @@ func (q *CartQueries) PaymentList(ctx context.Context) (map[string]bool, error) 
 		"stripe_active", "paypal_active", "spectrocoin_active", "coinbase_active", "portone_active",
 	}
 
-	query := fmt.Sprintf("SELECT key, value FROM setting WHERE key IN (%s)", strings.Repeat("?, ", len(keys)-1)+"?")
+	placeholders := buildPlaceholders(len(keys))
+	query := fmt.Sprintf("SELECT key, value FROM setting WHERE key IN (%s)", placeholders)
 	rows, err := q.DB.QueryContext(ctx, query, keys...)
 	if err != nil {
 		return nil, err
@@ -63,29 +64,56 @@ func (q *CartQueries) PaymentList(ctx context.Context) (map[string]bool, error) 
 func (q *CartQueries) Carts(ctx context.Context, limit, offset int) ([]*models.Cart, int, error) {
 	carts := []*models.Cart{}
 
-	query := `
-	SELECT
-		id,
-		email,
-		amount_total,
-		currency,
-		payment_id,
-		payment_status,
-		payment_system,
-		strftime('%s', created),
-		strftime('%s', updated)
-	FROM cart
-	ORDER BY created DESC
-`
+	var query string
+	if DBType() == "postgres" {
+		query = `
+		SELECT
+			id,
+			email,
+			amount_total,
+			currency,
+			payment_id,
+			payment_status,
+			payment_system,
+			EXTRACT(EPOCH FROM created)::bigint,
+			EXTRACT(EPOCH FROM updated)::bigint
+		FROM cart
+		ORDER BY created DESC
+	`
+	} else {
+		query = `
+		SELECT
+			id,
+			email,
+			amount_total,
+			currency,
+			payment_id,
+			payment_status,
+			payment_system,
+			strftime('%s', created),
+			strftime('%s', updated)
+		FROM cart
+		ORDER BY created DESC
+	`
+	}
 
 	// Add pagination
 	var params []any
 	if limit > 0 {
-		query += " LIMIT ?"
-		params = append(params, limit)
-		if offset > 0 {
-			query += " OFFSET ?"
-			params = append(params, offset)
+		if DBType() == "postgres" {
+			query += " LIMIT $1"
+			params = append(params, limit)
+			if offset > 0 {
+				query += " OFFSET $2"
+				params = append(params, offset)
+			}
+		} else {
+			query += " LIMIT ?"
+			params = append(params, limit)
+			if offset > 0 {
+				query += " OFFSET ?"
+				params = append(params, offset)
+			}
 		}
 	}
 
@@ -140,21 +168,40 @@ func (q *CartQueries) Carts(ctx context.Context, limit, offset int) ([]*models.C
 
 // Cart retrieves a cart from the database using the provided cartId.
 func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, error) {
-	query := `
-	SELECT 
-    id, 
-    email, 
-    cart,
-    amount_total,
-    currency,
-    payment_id,
-    payment_status,
-    payment_system,
-    strftime('%s', created),
-    strftime('%s', updated)
-	FROM cart
-	WHERE id = ?
-	`
+	var query string
+	if DBType() == "postgres" {
+		query = `
+		SELECT
+	    id,
+	    email,
+	    cart,
+	    amount_total,
+	    currency,
+	    payment_id,
+	    payment_status,
+	    payment_system,
+	    EXTRACT(EPOCH FROM created)::bigint,
+	    EXTRACT(EPOCH FROM updated)::bigint
+		FROM cart
+		WHERE id = $1
+		`
+	} else {
+		query = `
+		SELECT
+	    id,
+	    email,
+	    cart,
+	    amount_total,
+	    currency,
+	    payment_id,
+	    payment_status,
+	    payment_system,
+	    strftime('%s', created),
+	    strftime('%s', updated)
+		FROM cart
+		WHERE id = ?
+		`
+	}
 
 	var email, paymentID, cartJSON sql.NullString
 	var created, updated sql.NullInt64
@@ -585,7 +632,12 @@ func (q *CartQueries) AddCart(ctx context.Context, cart *models.Cart) error {
 		return err
 	}
 
-	query := `INSERT INTO cart (id, email, cart, amount_total, currency, payment_status, payment_system) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	var query string
+	if DBType() == "postgres" {
+		query = `INSERT INTO cart (id, email, cart, amount_total, currency, payment_status, payment_system) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	} else {
+		query = `INSERT INTO cart (id, email, cart, amount_total, currency, payment_status, payment_system) VALUES (?, ?, ?, ?, ?, ?, ?)`
+	}
 	_, err = q.DB.ExecContext(ctx, query, cart.ID, cart.Email, string(byteCart), cart.AmountTotal, cart.Currency, cart.PaymentStatus, cart.PaymentSystem)
 	return err
 }
@@ -599,17 +651,32 @@ func (q *CartQueries) UpdateCart(ctx context.Context, cart *models.Cart) error {
 
 	sql.WriteString("UPDATE cart SET ")
 
+	paramIndex := 1
 	if cart.PaymentID != "" {
-		sql.WriteString("payment_id = ?, ")
+		if DBType() == "postgres" {
+			sql.WriteString(fmt.Sprintf("payment_id = $%d, ", paramIndex))
+			paramIndex++
+		} else {
+			sql.WriteString("payment_id = ?, ")
+		}
 		args = append(args, cart.PaymentID)
 	}
 
 	if cart.PaymentStatus != "" {
-		sql.WriteString("payment_status = ?, ")
+		if DBType() == "postgres" {
+			sql.WriteString(fmt.Sprintf("payment_status = $%d, ", paramIndex))
+			paramIndex++
+		} else {
+			sql.WriteString("payment_status = ?, ")
+		}
 		args = append(args, cart.PaymentStatus)
 	}
 
-	sql.WriteString("updated = datetime('now') WHERE id = ?")
+	if DBType() == "postgres" {
+		sql.WriteString(fmt.Sprintf("updated = NOW() WHERE id = $%d", paramIndex))
+	} else {
+		sql.WriteString("updated = datetime('now') WHERE id = ?")
+	}
 	args = append(args, cart.ID)
 
 	_, err := q.DB.ExecContext(ctx, sql.String(), args...)
@@ -646,11 +713,21 @@ func (q *CartQueries) CartLetterPurchase(ctx context.Context, cartID string) (*m
 
 	// Fetch the email, cart information, and 'email' setting in one query.
 	var cartJSON string
-	err := q.QueryRowContext(ctx, `
+	var query string
+	if DBType() == "postgres" {
+		query = `
+        SELECT email, cart
+        FROM cart
+        WHERE payment_status = $1 AND id = $2
+    `
+	} else {
+		query = `
         SELECT email, cart
         FROM cart
         WHERE payment_status = ? AND id = ?
-    `, litepay.PAID, cartID).Scan(&mail.To, &cartJSON)
+    `
+	}
+	err := q.QueryRowContext(ctx, query, litepay.PAID, cartID).Scan(&mail.To, &cartJSON)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrPageNotFound
@@ -675,7 +752,13 @@ func (q *CartQueries) CartLetterPurchase(ctx context.Context, cartID string) (*m
 	files := []models.File{}
 	for _, cart := range products {
 		var digitalType string
-		err := tx.QueryRowContext(ctx, `SELECT digital FROM product WHERE id = ?`, cart.ProductID).Scan(&digitalType)
+		var queryDigital string
+		if DBType() == "postgres" {
+			queryDigital = `SELECT digital FROM product WHERE id = $1`
+		} else {
+			queryDigital = `SELECT digital FROM product WHERE id = ?`
+		}
+		err := tx.QueryRowContext(ctx, queryDigital, cart.ProductID).Scan(&digitalType)
 		if err != nil {
 			if stderrors.Is(err, sql.ErrNoRows) {
 				return nil, errors.ErrPageNotFound
@@ -692,17 +775,27 @@ func (q *CartQueries) CartLetterPurchase(ctx context.Context, cartID string) (*m
 			files = append(files, productFiles...)
 		case "data":
 			key := models.Data{}
-			err := tx.QueryRowContext(ctx, `SELECT id, content FROM digital_data WHERE cart_id = ?`, cartID).Scan(&key.ID, &key.Content)
+			var queryData1, queryData2, queryUpdate string
+			if DBType() == "postgres" {
+				queryData1 = `SELECT id, content FROM digital_data WHERE cart_id = $1`
+				queryData2 = `SELECT id, content FROM digital_data WHERE cart_id IS NULL AND product_id = $1 LIMIT 1`
+				queryUpdate = `UPDATE digital_data SET cart_id = $1 WHERE id = $2`
+			} else {
+				queryData1 = `SELECT id, content FROM digital_data WHERE cart_id = ?`
+				queryData2 = `SELECT id, content FROM digital_data WHERE cart_id IS NULL AND product_id = ? LIMIT 1`
+				queryUpdate = `UPDATE digital_data SET cart_id = ? WHERE id = ?`
+			}
+			err := tx.QueryRowContext(ctx, queryData1, cartID).Scan(&key.ID, &key.Content)
 			if err != nil {
 				if stderrors.Is(err, sql.ErrNoRows) {
-					err = tx.QueryRowContext(ctx, `SELECT id, content FROM digital_data WHERE cart_id IS NULL AND product_id = ? LIMIT 1`, cart.ProductID).Scan(&key.ID, &key.Content)
+					err = tx.QueryRowContext(ctx, queryData2, cart.ProductID).Scan(&key.ID, &key.Content)
 					if err != nil {
 						if stderrors.Is(err, sql.ErrNoRows) {
 							return nil, errors.ErrPageNotFound
 						}
 						return nil, err
 					}
-					if _, err := tx.ExecContext(ctx, `UPDATE digital_data SET cart_id = ? WHERE id = ?`, cartID, key.ID); err != nil {
+					if _, err := tx.ExecContext(ctx, queryUpdate, cartID, key.ID); err != nil {
 						return nil, err
 					}
 				} else {
@@ -758,7 +851,13 @@ func (q *CartQueries) CartLetterPurchase(ctx context.Context, cartID string) (*m
 // many "file" products (each iteration used to accumulate an open sql.Rows until the
 // enclosing function returned).
 func scanDigitalFiles(ctx context.Context, tx *sql.Tx, productID string) ([]models.File, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT id, name, ext, orig_name FROM digital_file WHERE product_id = ?`, productID)
+	var query string
+	if DBType() == "postgres" {
+		query = `SELECT id, name, ext, orig_name FROM digital_file WHERE product_id = $1`
+	} else {
+		query = `SELECT id, name, ext, orig_name FROM digital_file WHERE product_id = ?`
+	}
+	rows, err := tx.QueryContext(ctx, query, productID)
 	if err != nil {
 		return nil, err
 	}

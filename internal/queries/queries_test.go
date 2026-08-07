@@ -76,3 +76,23 @@ func Test_queries_page_crud(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func TestDualDatabaseInfrastructure(t *testing.T) {
+	runOnBothDBs(t, func(t *testing.T, db *Base, ctx context.Context) {
+		// Verify database is initialized
+		if db == nil {
+			t.Fatal("database is nil")
+		}
+
+		// Verify we can query settings
+		settings, err := db.GetSettingByKey(ctx, "installed")
+		if err != nil {
+			t.Fatalf("failed to query settings: %v", err)
+		}
+
+		// Settings should exist (from migrations)
+		if len(settings) == 0 {
+			t.Error("expected settings to exist after migration")
+		}
+	})
+}

@@ -60,7 +60,16 @@ func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 		"jwt_secret": jwt_secret,
 	}
 
-	stmt, err := tx.PrepareContext(ctx, `UPDATE setting SET value = ? WHERE key = ?`)
+	// Use database-appropriate placeholder syntax
+	// PostgreSQL uses $1, $2; SQLite uses ?, ?
+	var updateQuery string
+	if DBType() == "postgres" {
+		updateQuery = `UPDATE setting SET value = $1 WHERE key = $2`
+	} else {
+		updateQuery = `UPDATE setting SET value = ? WHERE key = ?`
+	}
+
+	stmt, err := tx.PrepareContext(ctx, updateQuery)
 	if err != nil {
 		return err
 	}

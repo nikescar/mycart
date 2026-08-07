@@ -9,10 +9,11 @@
 -- `social_youtube` / `social_other` never existed in the DB.
 --
 -- Re-inserting here with fresh, unique ids. The keys themselves are
--- `UNIQUE`, so `INSERT OR IGNORE` is still safe on installations that
--- somehow already contain them (e.g. hand-fixed by an operator).
-INSERT INTO setting VALUES ('yt1oK0n7cN6m9pB', 'social_youtube', '');
-INSERT INTO setting VALUES ('oT8hZ2q9vS3rW1L', 'social_other', '');
+-- `UNIQUE`, so `INSERT ON CONFLICT DO NOTHING` is safe on installations that
+-- already have them from 20240111145752_new_sicials.sql.
+-- Using same IDs as in 20240111145752 for consistency.
+INSERT INTO setting VALUES ('vs1N8xXCm9sP2Kq', 'social_youtube', '') ON CONFLICT (id) DO NOTHING;
+INSERT INTO setting VALUES ('tR7mQ2wYnBvL3Hp', 'social_other', '') ON CONFLICT (id) DO NOTHING;
 -- +goose StatementEnd
 
 -- +goose Down

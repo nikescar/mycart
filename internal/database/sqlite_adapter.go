@@ -51,3 +51,8 @@ func (a *SQLiteAdapter) Ping(ctx context.Context) error {
 func (a *SQLiteAdapter) Stats() sql.DBStats {
 	return a.db.Stats()
 }
+
+// Type returns the database type.
+func (a *SQLiteAdapter) Type() string {
+	return "sqlite"
+}

@@ -72,14 +72,35 @@ func LoadConfig() (*Config, error) {
 }
 
 func parseConnectionURL(rawURL string) PostgresConfig {
-	u, _ := url.Parse(rawURL)
+	u, err := url.Parse(rawURL)
+	if err != nil || u == nil {
+		fmt.Printf("⚠️  Failed to parse DATABASE_URL: %v\n", err)
+		fmt.Printf("   Using default PostgreSQL configuration\n")
+		return PostgresConfig{
+			Host:            "localhost",
+			Port:            5432,
+			Database:        "postgres",
+			User:            "postgres",
+			Password:        "",
+			SSLMode:         "require",
+			Schema:          "public",
+			Timezone:        "UTC",
+			ConnectTimeout:  10,
+			MaxOpenConns:    25,
+			MaxIdleConns:    5,
+			ConnMaxLifetime: 300 * time.Second,
+		}
+	}
 
 	port := 5432
 	if u.Port() != "" {
 		port, _ = strconv.Atoi(u.Port())
 	}
 
-	password, _ := u.User.Password()
+	var password string
+	if u.User != nil {
+		password, _ = u.User.Password()
+	}
 
 	sslmode := "require"
 	if q := u.Query().Get("sslmode"); q != "" {
@@ -91,11 +112,16 @@ func parseConnectionURL(rawURL string) PostgresConfig {
 		dbName = u.Path[1:]
 	}
 
+	var username string
+	if u.User != nil {
+		username = u.User.Username()
+	}
+
 	return PostgresConfig{
 		Host:            u.Hostname(),
 		Port:            port,
 		Database:        dbName,
-		User:            u.User.Username(),
+		User:            username,
 		Password:        password,
 		SSLMode:         sslmode,
 		Schema:          "public",

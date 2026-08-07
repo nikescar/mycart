@@ -51,3 +51,8 @@ func (a *PostgresAdapter) Ping(ctx context.Context) error {
 func (a *PostgresAdapter) Stats() sql.DBStats {
 	return a.db.Stats()
 }
+
+// Type returns the database type.
+func (a *PostgresAdapter) Type() string {
+	return "postgres"
+}

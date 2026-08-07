@@ -3,6 +3,7 @@ package queries
 import (
 	"database/sql"
 	"embed"
+	"fmt"
 
 	"github.com/shurco/mycart/db/migrations"
 	"github.com/shurco/mycart/internal/database"
@@ -46,6 +47,9 @@ func New(migrationsFS embed.FS) (err error) {
 		return err
 	}
 
+	// Log database information
+	logDatabaseInfo(cfg)
+
 	// Run migrations
 	err = database.RunMigrations(dbAdapter.DB(), cfg.Type, migrations.Embed())
 	if err != nil {
@@ -64,6 +68,22 @@ func New(migrationsFS embed.FS) (err error) {
 		CartQueries:    CartQueries{DB: sqlDB},
 	}
 	return nil
+}
+
+// logDatabaseInfo logs the database connection information
+func logDatabaseInfo(cfg *database.Config) {
+	switch cfg.Type {
+	case "postgres", "postgresql":
+		// Mask password in connection string for security
+		connInfo := fmt.Sprintf("%s@%s:%d/%s",
+			cfg.PostgreSQL.User,
+			cfg.PostgreSQL.Host,
+			cfg.PostgreSQL.Port,
+			cfg.PostgreSQL.Database)
+		fmt.Printf("🔌 Database: PostgreSQL (%s)\n", connInfo)
+	default:
+		fmt.Printf("🔌 Database: SQLite (%s)\n", cfg.SQLite.Path)
+	}
 }
 
 // NewFromDB initializes Base from an existing *sql.DB (e.g. in-memory SQLite for tests).
@@ -87,6 +107,14 @@ func DB() *Base {
 // Adapter returns the underlying database adapter for advanced operations.
 func Adapter() database.Database {
 	return dbAdapter
+}
+
+// DBType returns the database type ("sqlite" or "postgres").
+func DBType() string {
+	if dbAdapter != nil {
+		return dbAdapter.Type()
+	}
+	return "sqlite" // default
 }
 
 // Close closes the database connection.

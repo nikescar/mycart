@@ -26,4 +26,7 @@ type Database interface {
 
 	// Stats returns database statistics
 	Stats() sql.DBStats
+
+	// Type returns the database type ("sqlite" or "postgres")
+	Type() string
 }

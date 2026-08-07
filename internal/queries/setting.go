@@ -296,7 +296,9 @@ func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (ma
 		return nil, errors.ErrSettingNotFound
 	}
 
-	query := fmt.Sprintf("SELECT id, key, value FROM setting WHERE key IN (%s)", strings.Repeat("?, ", len(key)-1)+"?")
+	// Build placeholder string based on database type
+	placeholders := buildPlaceholders(len(key))
+	query := fmt.Sprintf("SELECT id, key, value FROM setting WHERE key IN (%s)", placeholders)
 	rows, err := q.DB.QueryContext(ctx, query, strutil.ToAny(key...)...)
 	if err != nil {
 		return nil, err
@@ -318,7 +320,26 @@ func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (ma
 
 // UpdateSettingByKey updates the value of a setting in the database based on the provided key.
 func (q *SettingQueries) UpdateSettingByKey(ctx context.Context, setting *models.SettingName) error {
-	query := `UPDATE setting SET value = ? WHERE key = ? `
+	var query string
+	if DBType() == "postgres" {
+		query = `UPDATE setting SET value = $1 WHERE key = $2`
+	} else {
+		query = `UPDATE setting SET value = ? WHERE key = ?`
+	}
 	_, err := q.DB.ExecContext(ctx, query, setting.Value, setting.Key)
 	return err
+}
+
+// buildPlaceholders generates database-appropriate placeholders for IN clauses
+func buildPlaceholders(count int) string {
+	if DBType() == "postgres" {
+		// PostgreSQL: $1, $2, $3
+		parts := make([]string, count)
+		for i := 0; i < count; i++ {
+			parts[i] = fmt.Sprintf("$%d", i+1)
+		}
+		return strings.Join(parts, ", ")
+	}
+	// SQLite: ?, ?, ?
+	return strings.Repeat("?, ", count-1) + "?"
 }

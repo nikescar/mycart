@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/shurco/mycart/db/migrations"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/internal/queries"
-	"github.com/shurco/mycart/migrations"
 )
 
 // InstallAdmin performs first-time setup with the given admin credentials.

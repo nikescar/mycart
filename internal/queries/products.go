@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/shurco/mycart/internal/db/postgres"
+	"github.com/shurco/mycart/internal/db/sqlite"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/security"
@@ -664,15 +666,17 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 }
 
 // DeleteProduct removes a product from the database based on its ID.
+// DeleteProduct deletes a product from the database using sqlc.
 func (q *ProductQueries) DeleteProduct(ctx context.Context, id string) error {
-	var query string
+	queries := getSQLCQueries()
+
 	if DBType() == "postgres" {
-		query = `DELETE FROM product WHERE id = $1`
-	} else {
-		query = `DELETE FROM product WHERE id = ?`
+		pgQueries := queries.(*postgres.Queries)
+		return pgQueries.DeleteProduct(ctx, id)
 	}
-	_, err := q.DB.ExecContext(ctx, query, id)
-	return err
+
+	sqliteQueries := queries.(*sqlite.Queries)
+	return sqliteQueries.DeleteProduct(ctx, id)
 }
 
 // publicProductFilter builds the WHERE clause for storefront product queries.
@@ -716,17 +720,17 @@ func (q *ProductQueries) IsProduct(ctx context.Context, slug string) bool {
 	return err == nil && exists
 }
 
-// UpdateActive toggles the 'active' status of a product and updates its 'updated' timestamp.
-// It takes a context and an ID as arguments, and returns an error if the operation fails.
+// UpdateActive toggles the 'active' status of a product and updates its 'updated' timestamp using sqlc.
 func (q *ProductQueries) UpdateActive(ctx context.Context, id string) error {
-	var query string
+	queries := getSQLCQueries()
+
 	if DBType() == "postgres" {
-		query = `UPDATE product SET active = NOT active, updated = NOW() WHERE id = $1`
-	} else {
-		query = `UPDATE product SET active = NOT active, updated = datetime('now') WHERE id = ?`
+		pgQueries := queries.(*postgres.Queries)
+		return pgQueries.UpdateProductActive(ctx, id)
 	}
-	_, err := q.DB.ExecContext(ctx, query, id)
-	return err
+
+	sqliteQueries := queries.(*sqlite.Queries)
+	return sqliteQueries.UpdateProductActive(ctx, id)
 }
 
 // productImage represents the database schema for product images.

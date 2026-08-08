@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/shurco/mycart/internal/db/postgres"
+	"github.com/shurco/mycart/internal/db/sqlite"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/litepay"
@@ -60,166 +62,124 @@ func (q *CartQueries) PaymentList(ctx context.Context) (map[string]bool, error) 
 	return payments, nil
 }
 
-// Carts retrieves a list of carts from the database.
+// Carts retrieves a list of carts from the database using sqlc.
 func (q *CartQueries) Carts(ctx context.Context, limit, offset int) ([]*models.Cart, int, error) {
 	carts := []*models.Cart{}
+	queries := getSQLCQueries()
 
-	var query string
+	// Handle limit=0 case
+	if limit == 0 {
+		limit = 999999
+	}
+
+	var results interface{}
+	var err error
+
 	if DBType() == "postgres" {
-		query = `
-		SELECT
-			id,
-			email,
-			amount_total,
-			currency,
-			payment_id,
-			payment_status,
-			payment_system,
-			EXTRACT(EPOCH FROM created)::bigint,
-			EXTRACT(EPOCH FROM updated)::bigint
-		FROM cart
-		ORDER BY created DESC
-	`
-	} else {
-		query = `
-		SELECT
-			id,
-			email,
-			amount_total,
-			currency,
-			payment_id,
-			payment_status,
-			payment_system,
-			strftime('%s', created),
-			strftime('%s', updated)
-		FROM cart
-		ORDER BY created DESC
-	`
-	}
-
-	// Add pagination
-	var params []any
-	if limit > 0 {
-		if DBType() == "postgres" {
-			query += " LIMIT $1"
-			params = append(params, limit)
-			if offset > 0 {
-				query += " OFFSET $2"
-				params = append(params, offset)
-			}
-		} else {
-			query += " LIMIT ?"
-			params = append(params, limit)
-			if offset > 0 {
-				query += " OFFSET ?"
-				params = append(params, offset)
-			}
+		pgQueries := queries.(*postgres.Queries)
+		params := postgres.ListCartsParams{
+			Limit:  int32(limit),
+			Offset: int32(offset),
 		}
+		results, err = pgQueries.ListCarts(ctx, params)
+	} else {
+		sqliteQueries := queries.(*sqlite.Queries)
+		params := sqlite.ListCartsParams{
+			Limit:  int64(limit),
+			Offset: int64(offset),
+		}
+		results, err = sqliteQueries.ListCarts(ctx, params)
 	}
 
-	rows, err := q.DB.QueryContext(ctx, query, params...)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer func() { _ = rows.Close() }()
 
-	for rows.Next() {
-		var email, paymentID sql.NullString
-		var updated sql.NullInt64
-		cart := &models.Cart{}
-
-		err := rows.Scan(
-			&cart.ID,
-			&email,
-			&cart.AmountTotal,
-			&cart.Currency,
-			&paymentID,
-			&cart.PaymentStatus,
-			&cart.PaymentSystem,
-			&cart.Created,
-			&updated,
-		)
-		if err != nil {
-			return nil, 0, err
+	// Convert results to models.Cart
+	switch v := results.(type) {
+	case []sqlite.ListCartsRow:
+		for _, row := range v {
+			var amountTotal int
+			if amt, ok := row.AmountTotal.(int64); ok {
+				amountTotal = int(amt)
+			} else if amt, ok := row.AmountTotal.(float64); ok {
+				amountTotal = int(amt)
+			}
+			cart := &models.Cart{
+				Core: models.Core{
+					ID: row.ID,
+				},
+				Email:         row.Email.String,
+				AmountTotal:   amountTotal,
+				Currency:      row.Currency,
+				PaymentID:     row.PaymentID.String,
+				PaymentStatus: litepay.Status(row.PaymentStatus.String),
+				PaymentSystem: litepay.PaymentSystem(row.PaymentSystem),
+			}
+			if row.Created.Valid {
+				cart.Created = row.Created.Time.Unix()
+			}
+			if row.Updated.Valid {
+				cart.Updated = row.Updated.Time.Unix()
+			}
+			carts = append(carts, cart)
 		}
-
-		cart.Email = email.String
-		cart.PaymentID = paymentID.String
-		if updated.Valid {
-			cart.Updated = updated.Int64
+	case []postgres.ListCartsRow:
+		for _, row := range v {
+			amountTotal, _ := strconv.Atoi(row.AmountTotal)
+			cart := &models.Cart{
+				Core: models.Core{
+					ID: row.ID,
+				},
+				Email:         row.Email.String,
+				AmountTotal:   amountTotal,
+				Currency:      row.Currency,
+				PaymentID:     row.PaymentID.String,
+				PaymentStatus: litepay.Status(row.PaymentStatus.String),
+				PaymentSystem: litepay.PaymentSystem(row.PaymentSystem),
+			}
+			if row.Created.Valid {
+				cart.Created = row.Created.Time.Unix()
+			}
+			if row.Updated.Valid {
+				cart.Updated = row.Updated.Time.Unix()
+			}
+			carts = append(carts, cart)
 		}
-
-		carts = append(carts, cart)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, 0, err
+	// Count total records using sqlc
+	var total int64
+	if DBType() == "postgres" {
+		pgQueries := queries.(*postgres.Queries)
+		total, err = pgQueries.CountCarts(ctx)
+	} else {
+		sqliteQueries := queries.(*sqlite.Queries)
+		total, err = sqliteQueries.CountCarts(ctx)
 	}
 
-	// Count total records
-	var total int
-	err = q.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM cart`).Scan(&total)
 	if err != nil && !stderrors.Is(err, sql.ErrNoRows) {
 		return nil, 0, err
 	}
 
-	return carts, total, nil
+	return carts, int(total), nil
 }
 
-// Cart retrieves a cart from the database using the provided cartId.
+// Cart retrieves a cart from the database using the provided cartId using sqlc.
 func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, error) {
-	var query string
+	queries := getSQLCQueries()
+
+	var result interface{}
+	var err error
+
 	if DBType() == "postgres" {
-		query = `
-		SELECT
-	    id,
-	    email,
-	    cart,
-	    amount_total,
-	    currency,
-	    payment_id,
-	    payment_status,
-	    payment_system,
-	    EXTRACT(EPOCH FROM created)::bigint,
-	    EXTRACT(EPOCH FROM updated)::bigint
-		FROM cart
-		WHERE id = $1
-		`
+		pgQueries := queries.(*postgres.Queries)
+		result, err = pgQueries.GetCart(ctx, cartId)
 	} else {
-		query = `
-		SELECT
-	    id,
-	    email,
-	    cart,
-	    amount_total,
-	    currency,
-	    payment_id,
-	    payment_status,
-	    payment_system,
-	    strftime('%s', created),
-	    strftime('%s', updated)
-		FROM cart
-		WHERE id = ?
-		`
+		sqliteQueries := queries.(*sqlite.Queries)
+		result, err = sqliteQueries.GetCart(ctx, cartId)
 	}
 
-	var email, paymentID, cartJSON sql.NullString
-	var created, updated sql.NullInt64
-	cart := &models.Cart{}
-
-	err := q.DB.QueryRowContext(ctx, query, cartId).
-		Scan(
-			&cart.ID,
-			&email,
-			&cartJSON,
-			&cart.AmountTotal,
-			&cart.Currency,
-			&paymentID,
-			&cart.PaymentStatus,
-			&cart.PaymentSystem,
-			&created,
-			&updated,
-		)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrProductNotFound
@@ -227,20 +187,54 @@ func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, er
 		return nil, err
 	}
 
-	cart.Email = email.String
-	cart.PaymentID = paymentID.String
-	if created.Valid {
-		cart.Created = created.Int64
-	}
+	cart := &models.Cart{}
 
-	if updated.Valid {
-		cart.Updated = updated.Int64
-	}
-
-	// Unmarshal cart products from JSON
-	if cartJSON.Valid && cartJSON.String != "" {
-		if err := json.Unmarshal([]byte(cartJSON.String), &cart.Cart); err != nil {
-			return nil, err
+	switch v := result.(type) {
+	case sqlite.GetCartRow:
+		cart.ID = v.ID
+		cart.Email = v.Email.String
+		// SQLite stores NUMERIC as int64 in the interface{}
+		if amt, ok := v.AmountTotal.(int64); ok {
+			cart.AmountTotal = int(amt)
+		} else if amt, ok := v.AmountTotal.(float64); ok {
+			cart.AmountTotal = int(amt)
+		}
+		cart.Currency = v.Currency
+		cart.PaymentID = v.PaymentID.String
+		cart.PaymentStatus = litepay.Status(v.PaymentStatus.String)
+		cart.PaymentSystem = litepay.PaymentSystem(v.PaymentSystem)
+		if v.Created.Valid {
+			cart.Created = v.Created.Time.Unix()
+		}
+		if v.Updated.Valid {
+			cart.Updated = v.Updated.Time.Unix()
+		}
+		// Unmarshal cart products from JSON
+		if len(v.Cart) > 0 {
+			if err := json.Unmarshal(v.Cart, &cart.Cart); err != nil {
+				return nil, err
+			}
+		}
+	case postgres.GetCartRow:
+		amountTotal, _ := strconv.Atoi(v.AmountTotal)
+		cart.ID = v.ID
+		cart.Email = v.Email.String
+		cart.AmountTotal = amountTotal
+		cart.Currency = v.Currency
+		cart.PaymentID = v.PaymentID.String
+		cart.PaymentStatus = litepay.Status(v.PaymentStatus.String)
+		cart.PaymentSystem = litepay.PaymentSystem(v.PaymentSystem)
+		if v.Created.Valid {
+			cart.Created = v.Created.Time.Unix()
+		}
+		if v.Updated.Valid {
+			cart.Updated = v.Updated.Time.Unix()
+		}
+		// Unmarshal cart products from JSON
+		if len(v.Cart) > 0 {
+			if err := json.Unmarshal(v.Cart, &cart.Cart); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -625,61 +619,86 @@ func validateNonVariantItem(
 		Available: true,
 	}
 }
-// AddCart inserts a new cart into the database.
+// AddCart inserts a new cart into the database using sqlc.
 func (q *CartQueries) AddCart(ctx context.Context, cart *models.Cart) error {
 	byteCart, err := json.Marshal(cart.Cart)
 	if err != nil {
 		return err
 	}
 
-	var query string
+	queries := getSQLCQueries()
+
 	if DBType() == "postgres" {
-		query = `INSERT INTO cart (id, email, cart, amount_total, currency, payment_status, payment_system) VALUES ($1, $2, $3, $4, $5, $6, $7)`
+		pgQueries := queries.(*postgres.Queries)
+		params := postgres.CreateCartParams{
+			ID:            cart.ID,
+			Email:         sql.NullString{String: cart.Email, Valid: cart.Email != ""},
+			AmountTotal:   strconv.Itoa(cart.AmountTotal),
+			Currency:      cart.Currency,
+			PaymentID:     sql.NullString{String: cart.PaymentID, Valid: cart.PaymentID != ""},
+			PaymentStatus: sql.NullString{String: string(cart.PaymentStatus), Valid: cart.PaymentStatus != ""},
+			Cart:          byteCart,
+			PaymentSystem: string(cart.PaymentSystem),
+		}
+		_, err = pgQueries.CreateCart(ctx, params)
 	} else {
-		query = `INSERT INTO cart (id, email, cart, amount_total, currency, payment_status, payment_system) VALUES (?, ?, ?, ?, ?, ?, ?)`
+		sqliteQueries := queries.(*sqlite.Queries)
+		params := sqlite.CreateCartParams{
+			ID:            cart.ID,
+			Email:         sql.NullString{String: cart.Email, Valid: cart.Email != ""},
+			AmountTotal:   cart.AmountTotal,
+			Currency:      cart.Currency,
+			PaymentID:     sql.NullString{String: cart.PaymentID, Valid: cart.PaymentID != ""},
+			PaymentStatus: sql.NullString{String: string(cart.PaymentStatus), Valid: cart.PaymentStatus != ""},
+			Cart:          byteCart,
+			PaymentSystem: string(cart.PaymentSystem),
+		}
+		_, err = sqliteQueries.CreateCart(ctx, params)
 	}
-	_, err = q.DB.ExecContext(ctx, query, cart.ID, cart.Email, string(byteCart), cart.AmountTotal, cart.Currency, cart.PaymentStatus, cart.PaymentSystem)
+
 	return err
 }
 
 // UpdateCart updates the cart details in the database.
+// Note: Currently only updates payment_id and payment_status dynamically.
+// Uses direct SQL for flexibility with partial updates.
 func (q *CartQueries) UpdateCart(ctx context.Context, cart *models.Cart) error {
 	var (
-		args []any
-		sql  strings.Builder
+		args   []any
+		sqlStr strings.Builder
 	)
 
-	sql.WriteString("UPDATE cart SET ")
+	sqlStr.WriteString("UPDATE cart SET ")
 
 	paramIndex := 1
 	if cart.PaymentID != "" {
 		if DBType() == "postgres" {
-			sql.WriteString(fmt.Sprintf("payment_id = $%d, ", paramIndex))
+			sqlStr.WriteString(fmt.Sprintf("payment_id = $%d, ", paramIndex))
 			paramIndex++
 		} else {
-			sql.WriteString("payment_id = ?, ")
+			sqlStr.WriteString("payment_id = ?, ")
 		}
 		args = append(args, cart.PaymentID)
 	}
 
 	if cart.PaymentStatus != "" {
 		if DBType() == "postgres" {
-			sql.WriteString(fmt.Sprintf("payment_status = $%d, ", paramIndex))
+			sqlStr.WriteString(fmt.Sprintf("payment_status = $%d, ", paramIndex))
 			paramIndex++
 		} else {
-			sql.WriteString("payment_status = ?, ")
+			sqlStr.WriteString("payment_status = ?, ")
 		}
-		args = append(args, cart.PaymentStatus)
+		args = append(args, string(cart.PaymentStatus))
 	}
 
 	if DBType() == "postgres" {
-		sql.WriteString(fmt.Sprintf("updated = NOW() WHERE id = $%d", paramIndex))
+		sqlStr.WriteString(fmt.Sprintf("updated = NOW() WHERE id = $%d", paramIndex))
 	} else {
-		sql.WriteString("updated = datetime('now') WHERE id = ?")
+		sqlStr.WriteString("updated = datetime('now') WHERE id = ?")
 	}
 	args = append(args, cart.ID)
 
-	_, err := q.DB.ExecContext(ctx, sql.String(), args...)
+	_, err := q.DB.ExecContext(ctx, sqlStr.String(), args...)
 	return err
 }
 
@@ -711,23 +730,15 @@ func (q *CartQueries) CartLetterPayment(ctx context.Context, email, amountPaymen
 func (q *CartQueries) CartLetterPurchase(ctx context.Context, cartID string) (*models.MessageMail, error) {
 	mail := &models.MessageMail{}
 
-	// Fetch the email, cart information, and 'email' setting in one query.
+	// Fetch the email and cart information - keep as direct SQL for this special query
 	var cartJSON string
 	var query string
 	if DBType() == "postgres" {
-		query = `
-        SELECT email, cart
-        FROM cart
-        WHERE payment_status = $1 AND id = $2
-    `
+		query = `SELECT email, cart FROM cart WHERE payment_status = $1 AND id = $2`
 	} else {
-		query = `
-        SELECT email, cart
-        FROM cart
-        WHERE payment_status = ? AND id = ?
-    `
+		query = `SELECT email, cart FROM cart WHERE payment_status = ? AND id = ?`
 	}
-	err := q.QueryRowContext(ctx, query, litepay.PAID, cartID).Scan(&mail.To, &cartJSON)
+	err := q.QueryRowContext(ctx, query, string(litepay.PAID), cartID).Scan(&mail.To, &cartJSON)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrPageNotFound
@@ -737,8 +748,10 @@ func (q *CartQueries) CartLetterPurchase(ctx context.Context, cartID string) (*m
 
 	// Unmarshal the products from the cart JSON.
 	products := []models.CartProduct{}
-	if err := json.Unmarshal([]byte(cartJSON), &products); err != nil {
-		return nil, err
+	if cartJSON != "" {
+		if err := json.Unmarshal([]byte(cartJSON), &products); err != nil {
+			return nil, err
+		}
 	}
 
 	// Begin a transaction.

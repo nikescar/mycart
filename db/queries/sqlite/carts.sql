@@ -1,9 +1,9 @@
 -- name: GetCart :one
-SELECT id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created, updated
+SELECT id, email, amount_total, currency, payment_id, payment_status, CAST(cart AS TEXT) as cart, payment_system, created, updated
 FROM cart WHERE id = ? LIMIT 1;
 
 -- name: ListCarts :many
-SELECT id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created, updated
+SELECT id, email, amount_total, currency, payment_id, payment_status, CAST(cart AS TEXT) as cart, payment_system, created, updated
 FROM cart
 ORDER BY created DESC
 LIMIT ? OFFSET ?;
@@ -14,7 +14,7 @@ SELECT COUNT(*) FROM cart;
 -- name: CreateCart :one
 INSERT INTO cart (id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-RETURNING id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created, updated;
+RETURNING id, email, amount_total, currency, payment_id, payment_status, CAST(cart AS TEXT) as cart, payment_system, created, updated;
 
 -- name: UpdateCart :exec
 UPDATE cart

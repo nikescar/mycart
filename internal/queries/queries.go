@@ -88,6 +88,9 @@ func logDatabaseInfo(cfg *database.Config) {
 
 // NewFromDB initializes Base from an existing *sql.DB (e.g. in-memory SQLite for tests).
 func NewFromDB(sqlite *sql.DB) {
+	// Create SQLite adapter for test database
+	dbAdapter = database.NewSQLiteAdapter(sqlite)
+
 	db = &Base{
 		AuthQueries:    AuthQueries{DB: sqlite},
 		InstallQueries: InstallQueries{DB: sqlite},

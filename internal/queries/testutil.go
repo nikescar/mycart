@@ -88,7 +88,7 @@ func cleanTestData(t *testing.T, db *sql.DB) {
 		"cart_item", "cart", "product_variant_option", "product_variant_image",
 		"product_variant", "product_option_value", "product_option",
 		"product_image", "digital_data", "digital_file", "product",
-		"page", "session", "subdomain",
+		"page", "session", "subdomain", "setting",
 	}
 
 	for _, table := range tables {

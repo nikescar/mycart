@@ -8,6 +8,14 @@ import (
 	"github.com/shurco/mycart/pkg/litepay"
 )
 
+// buildUpdateQuantitySQL returns database-specific SQL for updating product quantity
+func buildUpdateQuantitySQL() string {
+	if DBType() == "postgres" {
+		return "UPDATE product SET quantity = $1 WHERE id = $2"
+	}
+	return "UPDATE product SET quantity = ? WHERE id = ?"
+}
+
 func TestCart_AddUpdateListAndFetch(t *testing.T) {
 	db, ctx := bootstrap(t)
 
@@ -181,7 +189,7 @@ func TestValidateCartItems_Success(t *testing.T) {
 	if err := db.UpdateActive(ctx, product.ID); err != nil {
 		t.Fatalf("UpdateActive failed: %v", err)
 	}
-	if _, err := db.ProductQueries.DB.ExecContext(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 10, product.ID); err != nil {
+	if _, err := db.ProductQueries.DB.ExecContext(ctx, buildUpdateQuantitySQL(), 10, product.ID); err != nil {
 		t.Fatalf("Update quantity failed: %v", err)
 	}
 
@@ -234,7 +242,7 @@ func TestValidateCartItems_QuantityUnavailable(t *testing.T) {
 	if err := db.UpdateActive(ctx, product.ID); err != nil {
 		t.Fatalf("UpdateActive failed: %v", err)
 	}
-	if _, err := db.ProductQueries.DB.ExecContext(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 3, product.ID); err != nil {
+	if _, err := db.ProductQueries.DB.ExecContext(ctx, buildUpdateQuantitySQL(), 3, product.ID); err != nil {
 		t.Fatalf("Update quantity failed: %v", err)
 	}
 
@@ -492,7 +500,7 @@ func TestValidateCartItems_PriceChanged(t *testing.T) {
 	if err := db.UpdateActive(ctx, createdProduct.ID); err != nil {
 		t.Fatalf("UpdateActive failed: %v", err)
 	}
-	if _, err := db.ProductQueries.DB.ExecContext(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 10, createdProduct.ID); err != nil {
+	if _, err := db.ProductQueries.DB.ExecContext(ctx, buildUpdateQuantitySQL(), 10, createdProduct.ID); err != nil {
 		t.Fatalf("Update quantity failed: %v", err)
 	}
 

@@ -25,7 +25,7 @@ func (q *Queries) CountCarts(ctx context.Context) (int64, error) {
 const createCart = `-- name: CreateCart :one
 INSERT INTO cart (id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-RETURNING id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created, updated
+RETURNING id, email, amount_total, currency, payment_id, payment_status, cart::text as cart, payment_system, created, updated
 `
 
 type CreateCartParams struct {
@@ -40,16 +40,16 @@ type CreateCartParams struct {
 }
 
 type CreateCartRow struct {
-	ID            string          `json:"id"`
-	Email         sql.NullString  `json:"email"`
-	AmountTotal   string          `json:"amount_total"`
-	Currency      string          `json:"currency"`
-	PaymentID     sql.NullString  `json:"payment_id"`
-	PaymentStatus sql.NullString  `json:"payment_status"`
-	Cart          json.RawMessage `json:"cart"`
-	PaymentSystem string          `json:"payment_system"`
-	Created       sql.NullTime    `json:"created"`
-	Updated       sql.NullTime    `json:"updated"`
+	ID            string         `json:"id"`
+	Email         sql.NullString `json:"email"`
+	AmountTotal   string         `json:"amount_total"`
+	Currency      string         `json:"currency"`
+	PaymentID     sql.NullString `json:"payment_id"`
+	PaymentStatus sql.NullString `json:"payment_status"`
+	Cart          string         `json:"cart"`
+	PaymentSystem string         `json:"payment_system"`
+	Created       sql.NullTime   `json:"created"`
+	Updated       sql.NullTime   `json:"updated"`
 }
 
 func (q *Queries) CreateCart(ctx context.Context, arg CreateCartParams) (CreateCartRow, error) {
@@ -89,21 +89,21 @@ func (q *Queries) DeleteCart(ctx context.Context, id string) error {
 }
 
 const getCart = `-- name: GetCart :one
-SELECT id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created, updated
+SELECT id, email, amount_total, currency, payment_id, payment_status, cart::text as cart, payment_system, created, updated
 FROM cart WHERE id = $1 LIMIT 1
 `
 
 type GetCartRow struct {
-	ID            string          `json:"id"`
-	Email         sql.NullString  `json:"email"`
-	AmountTotal   string          `json:"amount_total"`
-	Currency      string          `json:"currency"`
-	PaymentID     sql.NullString  `json:"payment_id"`
-	PaymentStatus sql.NullString  `json:"payment_status"`
-	Cart          json.RawMessage `json:"cart"`
-	PaymentSystem string          `json:"payment_system"`
-	Created       sql.NullTime    `json:"created"`
-	Updated       sql.NullTime    `json:"updated"`
+	ID            string         `json:"id"`
+	Email         sql.NullString `json:"email"`
+	AmountTotal   string         `json:"amount_total"`
+	Currency      string         `json:"currency"`
+	PaymentID     sql.NullString `json:"payment_id"`
+	PaymentStatus sql.NullString `json:"payment_status"`
+	Cart          string         `json:"cart"`
+	PaymentSystem string         `json:"payment_system"`
+	Created       sql.NullTime   `json:"created"`
+	Updated       sql.NullTime   `json:"updated"`
 }
 
 func (q *Queries) GetCart(ctx context.Context, id string) (GetCartRow, error) {
@@ -125,7 +125,7 @@ func (q *Queries) GetCart(ctx context.Context, id string) (GetCartRow, error) {
 }
 
 const listCarts = `-- name: ListCarts :many
-SELECT id, email, amount_total, currency, payment_id, payment_status, cart, payment_system, created, updated
+SELECT id, email, amount_total, currency, payment_id, payment_status, cart::text as cart, payment_system, created, updated
 FROM cart
 ORDER BY created DESC
 LIMIT $1 OFFSET $2
@@ -137,16 +137,16 @@ type ListCartsParams struct {
 }
 
 type ListCartsRow struct {
-	ID            string          `json:"id"`
-	Email         sql.NullString  `json:"email"`
-	AmountTotal   string          `json:"amount_total"`
-	Currency      string          `json:"currency"`
-	PaymentID     sql.NullString  `json:"payment_id"`
-	PaymentStatus sql.NullString  `json:"payment_status"`
-	Cart          json.RawMessage `json:"cart"`
-	PaymentSystem string          `json:"payment_system"`
-	Created       sql.NullTime    `json:"created"`
-	Updated       sql.NullTime    `json:"updated"`
+	ID            string         `json:"id"`
+	Email         sql.NullString `json:"email"`
+	AmountTotal   string         `json:"amount_total"`
+	Currency      string         `json:"currency"`
+	PaymentID     sql.NullString `json:"payment_id"`
+	PaymentStatus sql.NullString `json:"payment_status"`
+	Cart          string         `json:"cart"`
+	PaymentSystem string         `json:"payment_system"`
+	Created       sql.NullTime   `json:"created"`
+	Updated       sql.NullTime   `json:"updated"`
 }
 
 func (q *Queries) ListCarts(ctx context.Context, arg ListCartsParams) ([]ListCartsRow, error) {

@@ -209,9 +209,9 @@ func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, er
 		if v.Updated.Valid {
 			cart.Updated = v.Updated.Time.Unix()
 		}
-		// Unmarshal cart products from JSON
+		// Unmarshal cart products from JSON (SQLite returns JSON as TEXT)
 		if len(v.Cart) > 0 {
-			if err := json.Unmarshal(v.Cart, &cart.Cart); err != nil {
+			if err := json.Unmarshal([]byte(v.Cart), &cart.Cart); err != nil {
 				return nil, err
 			}
 		}
@@ -230,9 +230,9 @@ func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, er
 		if v.Updated.Valid {
 			cart.Updated = v.Updated.Time.Unix()
 		}
-		// Unmarshal cart products from JSON
+		// Unmarshal cart products from JSON (PostgreSQL returns JSONB as TEXT)
 		if len(v.Cart) > 0 {
-			if err := json.Unmarshal(v.Cart, &cart.Cart); err != nil {
+			if err := json.Unmarshal([]byte(v.Cart), &cart.Cart); err != nil {
 				return nil, err
 			}
 		}

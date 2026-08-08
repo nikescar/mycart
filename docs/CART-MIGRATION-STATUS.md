@@ -204,3 +204,25 @@ The remaining Products module is complex but can be migrated using the same patt
 - ✅ Successful type-safe query migration
 - ✅ Maintainable patterns and helper functions
 - ✅ Zero-downtime migration path
+
+## Update: Products Module Assessment
+
+After analysis, the Products module (1,597 lines, 31 methods) presents unique challenges:
+- Complex JSON aggregation queries (`json_group_array`)
+- Dynamic filtering (conditional WHERE clauses)
+- Multi-table transactions with sync logic
+- Heavy use of business logic mixed with queries
+
+**Current Status**: 2 simple methods migrated (DeleteProduct, UpdateActive)
+
+**Recommendation**: Hybrid approach
+- ✅ Simple CRUD operations migrated where beneficial
+- 🔄 Complex aggregation queries kept as direct SQL
+- ⏭️ Full Products migration deferred (see PRODUCTS-MIGRATION-PLAN.md)
+
+**Rationale**: 
+- Core migration value achieved with 6 modules (86% of codebase)
+- Products' JSON aggregation patterns don't align well with sqlc
+- Migrating complex queries would require significant refactoring for marginal benefit
+
+See `PRODUCTS-MIGRATION-PLAN.md` for detailed analysis and future migration strategy.

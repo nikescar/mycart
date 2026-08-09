@@ -1,0 +1,1 @@
+import{_ as i,o as a,c as t,a2 as e}from"./chunks/framework.vCc8nrGM.js";const c=JSON.parse('{"title":"myCart API Reference","description":"","frontmatter":{},"headers":[],"relativePath":"api.md","filePath":"api.md"}'),n={name:"api.md"};function p(h,s,l,d,k,o){return a(),t("div",null,[...s[0]||(s[0]=[e("",343)])])}const g=i(n,[["render",p]]);export{c as __pageData,g as default};

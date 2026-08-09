@@ -64,7 +64,7 @@
     "src": "node_modules/@fontsource-variable/lexend/files/lexend-vietnamese-wght-normal.woff2"
   },
   "src/routes/README.md?pick=$css": {
-    "file": "assets/README-ChA2THQ0.js",
+    "file": "assets/README-DGRlmvc1.js",
     "name": "README",
     "src": "src/routes/README.md?pick=$css",
     "isEntry": true,
@@ -84,7 +84,7 @@
     ]
   },
   "virtual:$vinxi/handler/client": {
-    "file": "assets/client-6Pb9wAdU.js",
+    "file": "assets/client-QSGJrH3M.js",
     "name": "client",
     "src": "virtual:$vinxi/handler/client",
     "isEntry": true,

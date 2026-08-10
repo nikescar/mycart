@@ -79,9 +79,12 @@ async function installStore(baseURL: string) {
     return
   }
 
+  console.log('  → Installing store...')
+
   // Create AbortController with longer timeout for installation
+  // CI environments can be slower, especially during initial setup
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
 
   try {
     const response = await fetch(`${baseURL}/api/install`, {
@@ -113,7 +116,7 @@ async function installStore(baseURL: string) {
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Installation timed out after 30 seconds')
+      throw new Error('Installation timed out after 60 seconds. Check server logs for details.')
     }
     throw error
   }

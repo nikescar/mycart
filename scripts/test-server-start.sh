@@ -14,5 +14,13 @@ echo "🗄️ Initializing SQLite database..."
 touch lc_base/data.db
 echo "✓ Database file created"
 
+echo "📚 Generating Swagger API documentation..."
+if ! command -v swag >/dev/null 2>&1; then
+    echo "  Installing swag..."
+    go install github.com/swaggo/swag/cmd/swag@latest
+fi
+$(go env GOPATH)/bin/swag init -g cmd/main.go --output docs/swagger --parseDependency --parseInternal >/dev/null 2>&1
+echo "✓ Swagger docs generated"
+
 echo "🚀 Starting server..."
 exec go run ./cmd serve

@@ -12,8 +12,8 @@ touching that subtree.
 ## 1. Orientation
 
 - **Language/runtime:** Go 1.26, SvelteKit (Svelte 5), TailwindCSS v4.
-- **Database:** embedded SQLite via `modernc.org/sqlite` (pure Go, no CGO).
-- **Migrations:** [`goose`](https://github.com/pressly/goose) SQL files in `migrations/`.
+- **Database:** embedded SQLite via `modernc.org/sqlite` (pure Go, no CGO); optional PostgreSQL support.
+- **Migrations:** [`goose`](https://github.com/pressly/goose) SQL files in `db/migrations/`; type-safe queries via [`sqlc`](https://sqlc.dev/).
 - **Entrypoint:** `cmd/main.go` → `internal/app.go` (Fiber v3 HTTP server).
 - **Distribution:** single binary with frontends embedded via `//go:embed`.
 
@@ -26,7 +26,8 @@ Repo layout:
 | `pkg/` | Reusable packages that could in theory live in their own repo (`litepay`, `jwtutil`, `httpclient`, `webutil`, …). |
 | `web/admin/` | SvelteKit admin panel, served at `/_/`. |
 | `web/site/` | SvelteKit storefront, served at `/`. |
-| `migrations/` | Goose SQL migrations, embedded via `migrations/embed.go`. |
+| `db/migrations/` | Goose SQL migrations (sqlite + postgres), embedded via `embed.go`. |
+| `db/queries/` | sqlc query definitions for type-safe database access. |
 | `docs/` | User-facing documentation. |
 | `scripts/` | Developer convenience scripts (see README). |
 
@@ -125,3 +126,7 @@ For deeper, directory-scoped guidance, read the nearest `AGENTS.md`:
 - `pkg/AGENTS.md` — public-ish library packages.
 - `web/AGENTS.md` — both SvelteKit apps.
 - `migrations/AGENTS.md` — migration authoring and pitfalls.
+
+**Developer guides:**
+
+- `docs/database-development.md` — comprehensive guide for database schema changes using goose + sqlc.

@@ -1,5 +1,7 @@
 # migrations/AGENTS.md
 
+> **⚠️ LEGACY:** This directory contains SQLite-only migrations. New dual-database migrations (SQLite + PostgreSQL) are in `db/migrations/`. See [docs/database-development.md](../docs/database-development.md) for the current workflow.
+
 Goose-managed SQL migrations embedded into the binary via `embed.go`.
 
 ## Conventions

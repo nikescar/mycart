@@ -1,7 +1,7 @@
 # Database Development Guide
 
 **Last Updated:** 2026-08-11  
-**Related Docs:** [migrations/AGENTS.md](../migrations/AGENTS.md), [AGENTS.md](../AGENTS.md)
+**Related:** See `migrations/AGENTS.md` and `AGENTS.md` in the repository root for migration conventions and project overview.
 
 This guide explains how to make database schema changes in myCart using goose (migrations) and sqlc (type-safe queries).
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/internal/testutil"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 	_ "modernc.org/sqlite"
 )
 

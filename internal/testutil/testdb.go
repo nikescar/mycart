@@ -15,7 +15,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"github.com/shurco/mycart/internal/queries"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 	"github.com/shurco/mycart/pkg/jwtutil"
 	_ "modernc.org/sqlite"
 )

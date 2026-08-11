@@ -11,7 +11,7 @@ import (
 
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/internal/queries"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 )
 
 // bootstrapDB brings up a fresh queries DB in a temp working directory.

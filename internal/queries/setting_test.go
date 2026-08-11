@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 )
 
 // bootstrap initialises a fresh DB in a temp workdir and returns the *Base.

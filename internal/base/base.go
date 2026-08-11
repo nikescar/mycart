@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
 
 	"github.com/pressly/goose/v3"
 	"github.com/shurco/mycart/pkg/fsutil"
@@ -40,7 +41,18 @@ func New(dbPath string, migrations embed.FS) (*sql.DB, error) {
 
 // Migrate performs database migrations
 func Migrate(dbPath string, migrations embed.FS) error {
-	goose.SetBaseFS(migrations)
+	// Extract sqlite subdirectory from embedded filesystem
+	migrationsSubFS, err := fs.Sub(migrations, "sqlite")
+	if err != nil {
+		return fmt.Errorf("failed to access sqlite migrations: %w", err)
+	}
+
+	// Set goose dialect
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return fmt.Errorf("failed to set goose dialect: %w", err)
+	}
+
+	goose.SetBaseFS(migrationsSubFS)
 	db, err := goose.OpenDBWithDriver("sqlite", dbPath)
 	if err != nil {
 		return err
@@ -49,5 +61,9 @@ func Migrate(dbPath string, migrations embed.FS) error {
 
 	goose.SetTableName("migrate_db_version")
 
-	return goose.Up(db, ".")
+	if err := goose.Up(db, "."); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return nil
 }

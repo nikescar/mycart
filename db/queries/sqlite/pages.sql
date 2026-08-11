@@ -46,3 +46,7 @@ DELETE FROM page WHERE id = ?;
 
 -- name: PageExists :one
 SELECT EXISTS(SELECT 1 FROM page WHERE slug = ?);
+
+-- name: ListAllPages :many
+SELECT id, name, slug, content, position, active, created, updated
+FROM page ORDER BY created;

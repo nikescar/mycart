@@ -26,3 +26,6 @@ DELETE FROM subdomain WHERE id = ?;
 
 -- name: SubdomainExists :one
 SELECT EXISTS(SELECT 1 FROM subdomain WHERE name = ?);
+
+-- name: ListAllSubdomains :many
+SELECT id, name, "desc" FROM subdomain ORDER BY name;

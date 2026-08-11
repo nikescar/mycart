@@ -49,6 +49,10 @@ DELETE FROM product WHERE id = $1;
 -- name: ProductExists :one
 SELECT EXISTS(SELECT 1 FROM product WHERE slug = $1 AND deleted = FALSE);
 
+-- name: ListAllProducts :many
+SELECT id, name, "desc", slug, amount, metadata, attribute, digital, active, deleted, created, updated
+FROM product ORDER BY created;
+
 -- Product Variant Queries
 
 -- name: GetProductWithVariants :many

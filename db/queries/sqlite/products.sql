@@ -112,3 +112,7 @@ FROM product p
 LEFT JOIN product_image pi ON p.id = pi.product_id
 WHERE p.active = TRUE AND p.deleted = FALSE
 ORDER BY p.created DESC;
+
+-- name: ListAllProducts :many
+SELECT id, name, "desc", slug, amount, metadata, attribute, digital, active, deleted, created, updated
+FROM product ORDER BY created;

@@ -124,6 +124,58 @@ func (q *Queries) GetCart(ctx context.Context, id string) (GetCartRow, error) {
 	return i, err
 }
 
+const listAllCarts = `-- name: ListAllCarts :many
+SELECT id, email, amount_total, currency, payment_id, payment_status, cart::text as cart, payment_system, created, updated
+FROM cart ORDER BY created
+`
+
+type ListAllCartsRow struct {
+	ID            string         `json:"id"`
+	Email         sql.NullString `json:"email"`
+	AmountTotal   string         `json:"amount_total"`
+	Currency      string         `json:"currency"`
+	PaymentID     sql.NullString `json:"payment_id"`
+	PaymentStatus sql.NullString `json:"payment_status"`
+	Cart          string         `json:"cart"`
+	PaymentSystem string         `json:"payment_system"`
+	Created       sql.NullTime   `json:"created"`
+	Updated       sql.NullTime   `json:"updated"`
+}
+
+func (q *Queries) ListAllCarts(ctx context.Context) ([]ListAllCartsRow, error) {
+	rows, err := q.query(ctx, q.listAllCartsStmt, listAllCarts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllCartsRow{}
+	for rows.Next() {
+		var i ListAllCartsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.AmountTotal,
+			&i.Currency,
+			&i.PaymentID,
+			&i.PaymentStatus,
+			&i.Cart,
+			&i.PaymentSystem,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCarts = `-- name: ListCarts :many
 SELECT id, email, amount_total, currency, payment_id, payment_status, cart::text as cart, payment_system, created, updated
 FROM cart

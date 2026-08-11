@@ -62,6 +62,33 @@ func (q *Queries) GetSubdomainByName(ctx context.Context, name string) (Subdomai
 	return i, err
 }
 
+const listAllSubdomains = `-- name: ListAllSubdomains :many
+SELECT id, name, "desc" FROM subdomain ORDER BY name
+`
+
+func (q *Queries) ListAllSubdomains(ctx context.Context) ([]Subdomain, error) {
+	rows, err := q.query(ctx, q.listAllSubdomainsStmt, listAllSubdomains)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Subdomain{}
+	for rows.Next() {
+		var i Subdomain
+		if err := rows.Scan(&i.ID, &i.Name, &i.Desc); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSubdomains = `-- name: ListSubdomains :many
 SELECT id, name, "desc"
 FROM subdomain

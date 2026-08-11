@@ -54,6 +54,33 @@ func (q *Queries) GetSession(ctx context.Context, key string) (Session, error) {
 	return i, err
 }
 
+const listAllSessions = `-- name: ListAllSessions :many
+SELECT key, value, expires FROM session
+`
+
+func (q *Queries) ListAllSessions(ctx context.Context) ([]Session, error) {
+	rows, err := q.query(ctx, q.listAllSessionsStmt, listAllSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Session{}
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(&i.Key, &i.Value, &i.Expires); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateSession = `-- name: UpdateSession :exec
 UPDATE session SET value = ?, expires = ? WHERE key = ?
 `

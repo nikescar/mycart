@@ -28,3 +28,7 @@ WHERE id = $2;
 
 -- name: DeleteCart :exec
 DELETE FROM cart WHERE id = $1;
+
+-- name: ListAllCarts :many
+SELECT id, email, amount_total, currency, payment_id, payment_status, cart::text as cart, payment_system, created, updated
+FROM cart ORDER BY created;

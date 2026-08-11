@@ -92,6 +92,39 @@ func (q *Queries) GetDigitalDataByProduct(ctx context.Context, productID string)
 	return i, err
 }
 
+const listAllDigitalData = `-- name: ListAllDigitalData :many
+SELECT id, product_id, content, cart_id
+FROM digital_data ORDER BY id
+`
+
+func (q *Queries) ListAllDigitalData(ctx context.Context) ([]DigitalDatum, error) {
+	rows, err := q.query(ctx, q.listAllDigitalDataStmt, listAllDigitalData)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DigitalDatum{}
+	for rows.Next() {
+		var i DigitalDatum
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Content,
+			&i.CartID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDigitalDataByCart = `-- name: ListDigitalDataByCart :many
 SELECT id, product_id, content, cart_id
 FROM digital_data WHERE cart_id = ?

@@ -94,6 +94,48 @@ func (q *Queries) GetProductImage(ctx context.Context, id string) (GetProductIma
 	return i, err
 }
 
+const listAllProductImages = `-- name: ListAllProductImages :many
+SELECT id, product_id, name, ext, orig_name
+FROM product_image ORDER BY id
+`
+
+type ListAllProductImagesRow struct {
+	ID        string `json:"id"`
+	ProductID string `json:"product_id"`
+	Name      string `json:"name"`
+	Ext       string `json:"ext"`
+	OrigName  string `json:"orig_name"`
+}
+
+func (q *Queries) ListAllProductImages(ctx context.Context) ([]ListAllProductImagesRow, error) {
+	rows, err := q.query(ctx, q.listAllProductImagesStmt, listAllProductImages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllProductImagesRow{}
+	for rows.Next() {
+		var i ListAllProductImagesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Name,
+			&i.Ext,
+			&i.OrigName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProductImages = `-- name: ListProductImages :many
 SELECT id, product_id, name, ext, orig_name
 FROM product_image WHERE product_id = $1

@@ -78,6 +78,40 @@ func (q *Queries) GetDigitalFile(ctx context.Context, id string) (DigitalFile, e
 	return i, err
 }
 
+const listAllDigitalFiles = `-- name: ListAllDigitalFiles :many
+SELECT id, product_id, name, ext, orig_name
+FROM digital_file ORDER BY id
+`
+
+func (q *Queries) ListAllDigitalFiles(ctx context.Context) ([]DigitalFile, error) {
+	rows, err := q.query(ctx, q.listAllDigitalFilesStmt, listAllDigitalFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DigitalFile{}
+	for rows.Next() {
+		var i DigitalFile
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Name,
+			&i.Ext,
+			&i.OrigName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDigitalFiles = `-- name: ListDigitalFiles :many
 SELECT id, product_id, name, ext, orig_name
 FROM digital_file WHERE product_id = ?

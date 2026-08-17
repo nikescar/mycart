@@ -168,6 +168,30 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listActiveProductsStmt, err = db.PrepareContext(ctx, listActiveProducts); err != nil {
 		return nil, fmt.Errorf("error preparing query ListActiveProducts: %w", err)
 	}
+	if q.listAllCartsStmt, err = db.PrepareContext(ctx, listAllCarts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllCarts: %w", err)
+	}
+	if q.listAllDigitalDataStmt, err = db.PrepareContext(ctx, listAllDigitalData); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllDigitalData: %w", err)
+	}
+	if q.listAllDigitalFilesStmt, err = db.PrepareContext(ctx, listAllDigitalFiles); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllDigitalFiles: %w", err)
+	}
+	if q.listAllPagesStmt, err = db.PrepareContext(ctx, listAllPages); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllPages: %w", err)
+	}
+	if q.listAllProductImagesStmt, err = db.PrepareContext(ctx, listAllProductImages); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllProductImages: %w", err)
+	}
+	if q.listAllProductsStmt, err = db.PrepareContext(ctx, listAllProducts); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllProducts: %w", err)
+	}
+	if q.listAllSessionsStmt, err = db.PrepareContext(ctx, listAllSessions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllSessions: %w", err)
+	}
+	if q.listAllSubdomainsStmt, err = db.PrepareContext(ctx, listAllSubdomains); err != nil {
+		return nil, fmt.Errorf("error preparing query ListAllSubdomains: %w", err)
+	}
 	if q.listCartsStmt, err = db.PrepareContext(ctx, listCarts); err != nil {
 		return nil, fmt.Errorf("error preparing query ListCarts: %w", err)
 	}
@@ -491,6 +515,46 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listActiveProductsStmt: %w", cerr)
 		}
 	}
+	if q.listAllCartsStmt != nil {
+		if cerr := q.listAllCartsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllCartsStmt: %w", cerr)
+		}
+	}
+	if q.listAllDigitalDataStmt != nil {
+		if cerr := q.listAllDigitalDataStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllDigitalDataStmt: %w", cerr)
+		}
+	}
+	if q.listAllDigitalFilesStmt != nil {
+		if cerr := q.listAllDigitalFilesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllDigitalFilesStmt: %w", cerr)
+		}
+	}
+	if q.listAllPagesStmt != nil {
+		if cerr := q.listAllPagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllPagesStmt: %w", cerr)
+		}
+	}
+	if q.listAllProductImagesStmt != nil {
+		if cerr := q.listAllProductImagesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllProductImagesStmt: %w", cerr)
+		}
+	}
+	if q.listAllProductsStmt != nil {
+		if cerr := q.listAllProductsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllProductsStmt: %w", cerr)
+		}
+	}
+	if q.listAllSessionsStmt != nil {
+		if cerr := q.listAllSessionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllSessionsStmt: %w", cerr)
+		}
+	}
+	if q.listAllSubdomainsStmt != nil {
+		if cerr := q.listAllSubdomainsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listAllSubdomainsStmt: %w", cerr)
+		}
+	}
 	if q.listCartsStmt != nil {
 		if cerr := q.listCartsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listCartsStmt: %w", cerr)
@@ -708,6 +772,14 @@ type Queries struct {
 	getSubdomainStmt                 *sql.Stmt
 	getSubdomainByNameStmt           *sql.Stmt
 	listActiveProductsStmt           *sql.Stmt
+	listAllCartsStmt                 *sql.Stmt
+	listAllDigitalDataStmt           *sql.Stmt
+	listAllDigitalFilesStmt          *sql.Stmt
+	listAllPagesStmt                 *sql.Stmt
+	listAllProductImagesStmt         *sql.Stmt
+	listAllProductsStmt              *sql.Stmt
+	listAllSessionsStmt              *sql.Stmt
+	listAllSubdomainsStmt            *sql.Stmt
 	listCartsStmt                    *sql.Stmt
 	listDigitalDataByCartStmt        *sql.Stmt
 	listDigitalFilesStmt             *sql.Stmt
@@ -788,6 +860,14 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getSubdomainStmt:                 q.getSubdomainStmt,
 		getSubdomainByNameStmt:           q.getSubdomainByNameStmt,
 		listActiveProductsStmt:           q.listActiveProductsStmt,
+		listAllCartsStmt:                 q.listAllCartsStmt,
+		listAllDigitalDataStmt:           q.listAllDigitalDataStmt,
+		listAllDigitalFilesStmt:          q.listAllDigitalFilesStmt,
+		listAllPagesStmt:                 q.listAllPagesStmt,
+		listAllProductImagesStmt:         q.listAllProductImagesStmt,
+		listAllProductsStmt:              q.listAllProductsStmt,
+		listAllSessionsStmt:              q.listAllSessionsStmt,
+		listAllSubdomainsStmt:            q.listAllSubdomainsStmt,
 		listCartsStmt:                    q.listCartsStmt,
 		listDigitalDataByCartStmt:        q.listDigitalDataByCartStmt,
 		listDigitalFilesStmt:             q.listDigitalFilesStmt,

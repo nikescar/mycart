@@ -16,3 +16,7 @@ DELETE FROM digital_file WHERE id = ?;
 
 -- name: DeleteDigitalFiles :exec
 DELETE FROM digital_file WHERE product_id = ?;
+
+-- name: ListAllDigitalFiles :many
+SELECT id, product_id, name, ext, orig_name
+FROM digital_file ORDER BY id;

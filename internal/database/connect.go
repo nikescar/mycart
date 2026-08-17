@@ -107,9 +107,10 @@ func configureConnectionPool(db *sql.DB, cfg *Config) {
 		db.SetMaxIdleConns(cfg.PostgreSQL.MaxIdleConns)
 		db.SetConnMaxLifetime(cfg.PostgreSQL.ConnMaxLifetime)
 	} else {
-		// SQLite defaults - single connection to avoid locking issues
-		db.SetMaxOpenConns(1)
-		db.SetMaxIdleConns(1)
+		// SQLite with WAL mode supports multiple concurrent readers
+		// Allow up to 5 connections to support nested queries without deadlock
+		db.SetMaxOpenConns(5)
+		db.SetMaxIdleConns(2)
 		db.SetConnMaxLifetime(0)
 	}
 }

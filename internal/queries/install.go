@@ -77,13 +77,20 @@ func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 		"jwt_secret": jwt_secret,
 	}
 
-	queries := getSQLCQueries()
+	// Create transaction-bound queries to prevent deadlock
+	// Using queries from global DB while transaction is open causes blocking
+	var txQueries interface{}
+	if DBType() == "postgres" {
+		txQueries = postgres.New(tx)
+	} else {
+		txQueries = sqlite.New(tx)
+	}
 
 	for key, value := range settings {
 		nullValue := sql.NullString{String: value, Valid: value != ""}
 
 		if DBType() == "postgres" {
-			pgQueries := queries.(*postgres.Queries)
+			pgQueries := txQueries.(*postgres.Queries)
 			params := postgres.UpdateSettingParams{
 				Value: nullValue,
 				Key:   key,
@@ -92,7 +99,7 @@ func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 				return err
 			}
 		} else {
-			sqliteQueries := queries.(*sqlite.Queries)
+			sqliteQueries := txQueries.(*sqlite.Queries)
 			params := sqlite.UpdateSettingParams{
 				Value: nullValue,
 				Key:   key,

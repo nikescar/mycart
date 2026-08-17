@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 )
 
 func withTempBase(t *testing.T) func() {

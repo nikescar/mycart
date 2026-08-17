@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"database/sql"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,7 +16,7 @@ import (
 	"github.com/pressly/goose/v3"
 
 	"github.com/shurco/mycart/internal/queries"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 	"github.com/shurco/mycart/pkg/jwtutil"
 	_ "modernc.org/sqlite"
 )
@@ -45,13 +46,20 @@ func SetupTestDB(t *testing.T) func() {
 	if err != nil {
 		t.Fatalf("open in-memory sqlite: %v", err)
 	}
-	sqlite.SetMaxOpenConns(1)
+	// Allow multiple connections to prevent deadlock with nested queries
+	sqlite.SetMaxOpenConns(5)
 
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		t.Fatalf("set goose dialect: %v", err)
 	}
 
-	goose.SetBaseFS(migrations.Embed())
+	// Extract sqlite subdirectory from embedded filesystem
+	migrationsSubFS, err := fs.Sub(migrations.Embed(), "sqlite")
+	if err != nil {
+		t.Fatalf("access sqlite migrations: %v", err)
+	}
+
+	goose.SetBaseFS(migrationsSubFS)
 	goose.SetTableName("migrate_db_version")
 	if err := goose.Up(sqlite, "."); err != nil {
 		t.Fatalf("run schema migrations: %v", err)

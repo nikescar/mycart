@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"io/fs"
 	"net/http"
 	"testing"
 
@@ -10,7 +11,7 @@ import (
 
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/internal/testutil"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 	_ "modernc.org/sqlite"
 )
 
@@ -27,7 +28,14 @@ func setupCleanDB(t *testing.T) (*fiber.App, func()) {
 	if err := goose.SetDialect("sqlite3"); err != nil {
 		t.Fatal(err)
 	}
-	goose.SetBaseFS(migrations.Embed())
+
+	// Extract sqlite subdirectory from embedded filesystem
+	migrationsSubFS, err := fs.Sub(migrations.Embed(), "sqlite")
+	if err != nil {
+		t.Fatalf("access sqlite migrations: %v", err)
+	}
+
+	goose.SetBaseFS(migrationsSubFS)
 	goose.SetTableName("migrate_db_version")
 	if err := goose.Up(sqlite, "."); err != nil {
 		t.Fatal(err)

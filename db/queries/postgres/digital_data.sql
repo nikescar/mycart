@@ -25,3 +25,7 @@ DELETE FROM digital_data WHERE id = $1;
 
 -- name: DeleteDigitalDataByProduct :exec
 DELETE FROM digital_data WHERE product_id = $1;
+
+-- name: ListAllDigitalData :many
+SELECT id, product_id, content, cart_id
+FROM digital_data ORDER BY id;

@@ -28,3 +28,7 @@ WHERE id = ?;
 
 -- name: DeleteCart :exec
 DELETE FROM cart WHERE id = ?;
+
+-- name: ListAllCarts :many
+SELECT id, email, amount_total, currency, payment_id, payment_status, CAST(cart AS TEXT) as cart, payment_system, created, updated
+FROM cart ORDER BY created;

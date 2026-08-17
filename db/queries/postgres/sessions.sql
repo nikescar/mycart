@@ -12,3 +12,6 @@ DELETE FROM session WHERE key = $1;
 
 -- name: DeleteExpiredSessions :exec
 DELETE FROM session WHERE expires < $1;
+
+-- name: ListAllSessions :many
+SELECT key, value, expires FROM session;

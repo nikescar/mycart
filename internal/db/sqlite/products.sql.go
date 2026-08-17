@@ -481,6 +481,62 @@ func (q *Queries) ListActiveProducts(ctx context.Context, arg ListActiveProducts
 	return items, nil
 }
 
+const listAllProducts = `-- name: ListAllProducts :many
+SELECT id, name, "desc", slug, amount, metadata, attribute, digital, active, deleted, created, updated
+FROM product ORDER BY created
+`
+
+type ListAllProductsRow struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Desc      string          `json:"desc"`
+	Slug      string          `json:"slug"`
+	Amount    interface{}     `json:"amount"`
+	Metadata  json.RawMessage `json:"metadata"`
+	Attribute json.RawMessage `json:"attribute"`
+	Digital   sql.NullString  `json:"digital"`
+	Active    bool            `json:"active"`
+	Deleted   bool            `json:"deleted"`
+	Created   sql.NullTime    `json:"created"`
+	Updated   sql.NullTime    `json:"updated"`
+}
+
+func (q *Queries) ListAllProducts(ctx context.Context) ([]ListAllProductsRow, error) {
+	rows, err := q.query(ctx, q.listAllProductsStmt, listAllProducts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllProductsRow{}
+	for rows.Next() {
+		var i ListAllProductsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Desc,
+			&i.Slug,
+			&i.Amount,
+			&i.Metadata,
+			&i.Attribute,
+			&i.Digital,
+			&i.Active,
+			&i.Deleted,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProductVariantsByProduct = `-- name: ListProductVariantsByProduct :many
 SELECT id, product_id, sku, price_surcharge, quantity, option_values, active, deleted, created, updated
 FROM product_variant

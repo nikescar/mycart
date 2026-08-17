@@ -17,3 +17,7 @@ DELETE FROM product_image WHERE id = $1;
 
 -- name: DeleteProductImages :exec
 DELETE FROM product_image WHERE product_id = $1;
+
+-- name: ListAllProductImages :many
+SELECT id, product_id, name, ext, orig_name
+FROM product_image ORDER BY id;

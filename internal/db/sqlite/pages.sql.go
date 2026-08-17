@@ -143,6 +143,54 @@ func (q *Queries) GetPageBySlug(ctx context.Context, slug string) (GetPageBySlug
 	return i, err
 }
 
+const listAllPages = `-- name: ListAllPages :many
+SELECT id, name, slug, content, position, active, created, updated
+FROM page ORDER BY created
+`
+
+type ListAllPagesRow struct {
+	ID       string         `json:"id"`
+	Name     string         `json:"name"`
+	Slug     string         `json:"slug"`
+	Content  sql.NullString `json:"content"`
+	Position string         `json:"position"`
+	Active   bool           `json:"active"`
+	Created  sql.NullTime   `json:"created"`
+	Updated  sql.NullTime   `json:"updated"`
+}
+
+func (q *Queries) ListAllPages(ctx context.Context) ([]ListAllPagesRow, error) {
+	rows, err := q.query(ctx, q.listAllPagesStmt, listAllPages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAllPagesRow{}
+	for rows.Next() {
+		var i ListAllPagesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Content,
+			&i.Position,
+			&i.Active,
+			&i.Created,
+			&i.Updated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPages = `-- name: ListPages :many
 SELECT id, name, slug, content, position, active, created, updated
 FROM page

@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/shurco/mycart/internal/queries"
-	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/db/migrations"
 )
 
 // routesTestDB brings up a blank queries DB so handlers wired into these

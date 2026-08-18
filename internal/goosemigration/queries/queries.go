@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/shurco/mycart/db/migrations"
-	"github.com/shurco/mycart/internal/database"
+	"github.com/shurco/mycart/internal/goosemigration/database"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )

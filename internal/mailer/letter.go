@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/queries"
+	"github.com/shurco/mycart/internal/goosemigration/queries"
 )
 
 // ensureSenderEmail ensures that sender email is set, using user email from Settings as fallback.

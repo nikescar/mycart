@@ -19,7 +19,7 @@ import (
 
 	"github.com/shurco/mycart/db/migrations"
 	"github.com/shurco/mycart/internal/middleware"
-	"github.com/shurco/mycart/internal/queries"
+	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/internal/routes"
 	"github.com/shurco/mycart/pkg/logging"
 	"github.com/shurco/mycart/pkg/webutil"

@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/queries"
+	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/pkg/jwtutil"
 	"github.com/shurco/mycart/pkg/logging"
 	"github.com/shurco/mycart/pkg/security"

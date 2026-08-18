@@ -10,7 +10,7 @@ import (
 	mailer "github.com/xhit/go-simple-mail/v2"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/queries"
+	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/db/migrations"
 )
 

@@ -24,10 +24,9 @@ type installStatus struct {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/install/status [get]
 func InstallStatus(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
-	installed, err := db.IsInstalled(c.Context())
+	installed, err := store.IsInstalled(c.Context())
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -49,7 +48,6 @@ func InstallStatus(c fiber.Ctx) error {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/install [post]
 func Install(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	request := new(models.Install)
 
@@ -63,7 +61,7 @@ func Install(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	if err := db.Install(c.Context(), request); err != nil {
+	if err := store.Install(c.Context(), request); err != nil {
 		if errors.Is(err, queries.ErrAlreadyInstalled) {
 			return webutil.StatusBadRequest(c, err.Error())
 		}

@@ -10,7 +10,7 @@ import (
 
 	"github.com/shurco/mycart/internal/mailer"
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/goosemigration/queries"
+	"github.com/shurco/mycart/internal/store"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/logging"
 	"github.com/shurco/mycart/pkg/update"
@@ -31,10 +31,9 @@ const versionCacheTTL = 24 * time.Hour
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/_/version [get]
 func Version(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
-	if cached, err := loadCachedVersion(c.Context(), db); err != nil {
+	if cached, err := loadCachedVersion(c.Context()); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	} else if cached != nil {
@@ -49,7 +48,7 @@ func Version(c fiber.Ctx) error {
 		version.ReleaseURL = release.GetUrl()
 	}
 
-	if err := cacheVersion(c.Context(), db, version); err != nil {
+	if err := cacheVersion(c.Context(), version); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -68,8 +67,8 @@ func currentVersion() *update.Version {
 }
 
 // loadCachedVersion returns non-nil Version if the value is present in the session cache.
-func loadCachedVersion(ctx context.Context, db *queries.Base) (*update.Version, error) {
-	session, err := db.GetSession(ctx, "update")
+func loadCachedVersion(ctx context.Context) (*update.Version, error) {
+	session, err := store.GetSession(ctx, "update")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
@@ -84,7 +83,7 @@ func loadCachedVersion(ctx context.Context, db *queries.Base) (*update.Version, 
 }
 
 // cacheVersion stores the version info in the session cache with a TTL.
-func cacheVersion(ctx context.Context, db *queries.Base, v *update.Version) error {
+func cacheVersion(ctx context.Context, v *update.Version) error {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -92,7 +91,7 @@ func cacheVersion(ctx context.Context, db *queries.Base, v *update.Version) erro
 	// AddSession is idempotent for the same key (INSERT OR REPLACE semantics),
 	// so we don't need an explicit DeleteSession here.
 	expires := time.Now().Add(versionCacheTTL).Unix()
-	return db.AddSession(ctx, "update", string(data), expires)
+	return store.AddSession(ctx, "update", string(data), expires)
 }
 
 // GetSetting returns a setting value by key.
@@ -108,7 +107,6 @@ func cacheVersion(ctx context.Context, db *queries.Base, v *update.Version) erro
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/_/settings/{setting_key} [get]
 func GetSetting(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	settingKey := c.Params("setting_key")
 
@@ -120,9 +118,9 @@ func GetSetting(c fiber.Ctx) error {
 	var section any
 	var err error
 	if model := settingModelFor(settingKey); model != nil {
-		section, err = db.GetSettingByGroup(c.Context(), model)
+		section, err = store.GetSettingByGroup(c.Context(), model)
 	} else {
-		section, err = db.GetSettingByKey(c.Context(), settingKey)
+		section, err = store.GetSettingByKey(c.Context(), settingKey)
 	}
 
 	if err != nil {
@@ -150,7 +148,6 @@ func GetSetting(c fiber.Ctx) error {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/_/settings/{setting_key} [patch]
 func UpdateSetting(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	settingKey := c.Params("setting_key")
 
@@ -175,7 +172,7 @@ func UpdateSetting(c fiber.Ctx) error {
 	// Handle the password update separately if that's the case
 	if settingKey == "password" {
 		password := request.(*models.Password)
-		if err := db.UpdatePassword(c.Context(), password); err != nil {
+		if err := store.UpdatePassword(c.Context(), password); err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
 		}
@@ -184,7 +181,7 @@ func UpdateSetting(c fiber.Ctx) error {
 
 	if settingName, ok := request.(*models.SettingName); ok {
 		settingName.Key = settingKey
-		if err := db.UpdateSettingByKey(c.Context(), settingName); err != nil {
+		if err := store.UpdateSettingByKey(c.Context(), settingName); err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
 		}
@@ -192,7 +189,7 @@ func UpdateSetting(c fiber.Ctx) error {
 	}
 
 	// Update setting for all other cases
-	if err := db.UpdateSettingByGroup(c.Context(), request); err != nil {
+	if err := store.UpdateSettingByGroup(c.Context(), request); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}

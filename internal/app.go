@@ -21,6 +21,8 @@ import (
 	"github.com/shurco/mycart/internal/middleware"
 	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/internal/routes"
+	"github.com/shurco/mycart/internal/store"
+	"github.com/shurco/mycart/internal/store/db"
 	"github.com/shurco/mycart/pkg/logging"
 	"github.com/shurco/mycart/pkg/webutil"
 )
@@ -48,6 +50,15 @@ func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
 		log.Err(err).Send()
 		return err
 	}
+
+	// Initialize function pointers for zero-overhead database abstraction
+	if err := db.Init(queries.Adapter().DB(), queries.DBType()); err != nil {
+		log.Err(err).Msg("failed to initialize database function pointers")
+		return err
+	}
+
+	// Initialize store package with database connection for transactions
+	store.InitStore(queries.Adapter().DB())
 
 	app, err := setupFiberApp(noSite)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shurco/mycart/internal/mailer"
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/goosemigration/queries"
+	"github.com/shurco/mycart/internal/store"
 	"github.com/shurco/mycart/internal/webhook"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/litepay"
@@ -50,16 +50,15 @@ func sendPaymentWebhook(event webhook.Event, paymentSystem litepay.PaymentSystem
 // @Failure      400 {object} webutil.HTTPResponse "Bad request"
 // @Router       /api/cart/payment [get]
 func PaymentList(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
-	paymentList, err := db.PaymentList(c.Context())
+	paymentList, err := store.PaymentList(c.Context())
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
 	// Get current store currency for PortOne filtering
-	currencySetting, err := db.GetSettingByKey(c.Context(), "currency")
+	currencySetting, err := store.GetSettingByKey(c.Context(), "currency")
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -68,7 +67,7 @@ func PaymentList(c fiber.Ctx) error {
 
 	// Filter PortOne based on supported currencies
 	if paymentList["portone"] {
-		portoneSettings, err := queries.GetSettingByGroup[models.Portone](c.Context(), db)
+		portoneSettings, err := store.GetSettingByGroupTyped[models.Portone](c.Context())
 		if err == nil && portoneSettings != nil && len(portoneSettings.SupportedCurrencies) > 0 {
 			supported := false
 			for _, curr := range portoneSettings.SupportedCurrencies {
@@ -101,7 +100,6 @@ func PaymentList(c fiber.Ctx) error {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/cart/create [post]
 func CreateCart(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	payment := new(models.CartPayment)
 
@@ -110,7 +108,7 @@ func CreateCart(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	setting, err := db.GetSettingByKey(c.Context(), "currency")
+	setting, err := store.GetSettingByKey(c.Context(), "currency")
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -118,7 +116,7 @@ func CreateCart(c fiber.Ctx) error {
 	currency := setting["currency"].Value.(string)
 
 	// Validate cart items before processing
-	validationResult, err := queries.ValidateCartItems(c.Context(), db, payment.Products, currency)
+	validationResult, err := store.ValidateCartItems(c.Context(), payment.Products, currency)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -141,7 +139,7 @@ func CreateCart(c fiber.Ctx) error {
 	cartID := security.RandomString()
 
 	// Create cart record
-	if err := db.AddCart(c.Context(), &models.Cart{
+	if err := store.AddCart(c.Context(), &models.Cart{
 		Core: models.Core{
 			ID: cartID,
 		},
@@ -193,7 +191,6 @@ func CreateCart(c fiber.Ctx) error {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/cart/{cart_id} [get]
 func GetCart(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	cartID := c.Params("cart_id")
 
@@ -201,7 +198,7 @@ func GetCart(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, "cart_id is required")
 	}
 
-	cart, err := db.Cart(c.Context(), cartID)
+	cart, err := store.Cart(c.Context(), cartID)
 	if err != nil {
 		log.ErrorStack(err)
 		if errors.Is(err, errors.ErrProductNotFound) {
@@ -214,12 +211,12 @@ func GetCart(c fiber.Ctx) error {
 	// Pass cartID to include digital products purchased in this cart
 	var cartItems []map[string]any
 	if len(cart.Cart) > 0 {
-		products, err := db.ListProducts(c.Context(), false, 0, 0, cartID, cart.Cart...)
+		products, err := store.ListProducts(c.Context(), false, 0, 0, cartID, cart.Cart...)
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
 		}
-		cartItems = queries.BuildCartItems(cart, products)
+		cartItems = store.BuildCartItems(cart, products)
 	}
 
 	return webutil.Response(c, fiber.StatusOK, "Cart", map[string]any{
@@ -246,7 +243,6 @@ func GetCart(c fiber.Ctx) error {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /cart/payment [post]
 func Payment(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	payment := new(models.CartPayment)
 
@@ -255,7 +251,7 @@ func Payment(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	setting, err := db.GetSettingByKey(c.Context(), "domain", "currency")
+	setting, err := store.GetSettingByKey(c.Context(), "domain", "currency")
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -263,14 +259,14 @@ func Payment(c fiber.Ctx) error {
 	domain := setting["domain"].Value.(string)
 	currency := setting["currency"].Value.(string)
 
-	products, err := db.ListProducts(c.Context(), false, 0, 0, "", payment.Products...)
+	products, err := store.ListProducts(c.Context(), false, 0, 0, "", payment.Products...)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
 
 	// Validate cart items before processing
-	validationResult, err := queries.ValidateCartItems(c.Context(), db, payment.Products, currency)
+	validationResult, err := store.ValidateCartItems(c.Context(), payment.Products, currency)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -343,7 +339,7 @@ func Payment(c fiber.Ctx) error {
 	paymentURL := fmt.Sprintf("%s://%s/cart", protocol, domain)
 	switch paymentSystem {
 	case litepay.STRIPE:
-		setting, err := queries.GetSettingByGroup[models.Stripe](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Stripe](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -361,7 +357,7 @@ func Payment(c fiber.Ctx) error {
 		paymentURL = response.URL
 
 	case litepay.PAYPAL:
-		setting, err := queries.GetSettingByGroup[models.Paypal](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Paypal](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -379,7 +375,7 @@ func Payment(c fiber.Ctx) error {
 		paymentURL = response.URL
 
 	case litepay.SPECTROCOIN:
-		setting, err := queries.GetSettingByGroup[models.Spectrocoin](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Spectrocoin](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -397,7 +393,7 @@ func Payment(c fiber.Ctx) error {
 		paymentURL = response.URL
 
 	case litepay.COINBASE:
-		setting, err := queries.GetSettingByGroup[models.Coinbase](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Coinbase](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -425,7 +421,7 @@ func Payment(c fiber.Ctx) error {
 		paymentURL = response.URL
 	}
 
-	if err := db.AddCart(c.Context(), &models.Cart{
+	if err := store.AddCart(c.Context(), &models.Cart{
 		Core: models.Core{
 			ID: cart.ID,
 		},
@@ -504,8 +500,7 @@ func PaymentCallback(c fiber.Ctx) error {
 		}
 	}
 
-	db := queries.DB()
-	err := db.UpdateCart(c.Context(), &models.Cart{
+	err := store.UpdateCart(c.Context(), &models.Cart{
 		Core: models.Core{
 			ID: payment.CartID,
 		},
@@ -569,8 +564,7 @@ func PaymentSuccess(c fiber.Ctx) error {
 		return c.Redirect().To("/")
 	}
 
-	db := queries.DB()
-	cartInfo, err := db.Cart(c.Context(), c.Query("cart_id"))
+	cartInfo, err := store.Cart(c.Context(), c.Query("cart_id"))
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -590,7 +584,7 @@ func PaymentSuccess(c fiber.Ctx) error {
 	switch payment.PaymentSystem {
 	case litepay.STRIPE:
 		sessionStripe := c.Query("session")
-		setting, err := queries.GetSettingByGroup[models.Stripe](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Stripe](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -609,7 +603,7 @@ func PaymentSuccess(c fiber.Ctx) error {
 
 	case litepay.PAYPAL:
 		tokenPaypal := c.Query("token")
-		setting, err := queries.GetSettingByGroup[models.Paypal](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Paypal](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -634,7 +628,7 @@ func PaymentSuccess(c fiber.Ctx) error {
 		if chargeID == "" {
 			chargeID = payment.CartID // Fallback to cart ID if charge_id not provided
 		}
-		setting, err := queries.GetSettingByGroup[models.Coinbase](c.Context(), db)
+		setting, err := store.GetSettingByGroupTyped[models.Coinbase](c.Context())
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -662,7 +656,7 @@ func PaymentSuccess(c fiber.Ctx) error {
 		payment.Status = response.Status
 	}
 
-	err = db.UpdateCart(c.Context(), &models.Cart{
+	err = store.UpdateCart(c.Context(), &models.Cart{
 		Core: models.Core{
 			ID: payment.CartID,
 		},
@@ -714,8 +708,7 @@ func PaymentCancel(c fiber.Ctx) error {
 		PaymentSystem: litepay.PaymentSystem(c.Query("payment_system")),
 	}
 
-	db := queries.DB()
-	err := db.UpdateCart(c.Context(), &models.Cart{
+	err := store.UpdateCart(c.Context(), &models.Cart{
 		Core: models.Core{
 			ID: payment.CartID,
 		},

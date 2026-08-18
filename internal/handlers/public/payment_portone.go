@@ -13,7 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/goosemigration/queries"
+	"github.com/shurco/mycart/internal/store"
 	"github.com/shurco/mycart/pkg/logging"
 	"github.com/shurco/mycart/pkg/webutil"
 )
@@ -32,10 +32,9 @@ var portoneAPIURL = "https://api.portone.io"
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/cart/portone-config [get]
 func GetPortoneConfig(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
-	settings, err := queries.GetSettingByGroup[models.Portone](c.Context(), db)
+	settings, err := store.GetSettingByGroupTyped[models.Portone](c.Context())
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -119,7 +118,6 @@ func validateCartID(customDataJSON, expectedCartID string, log *logging.Log) err
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/payment/portone/complete [post]
 func CompletePortonePayment(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
 	var request struct {
@@ -136,14 +134,14 @@ func CompletePortonePayment(c fiber.Ctx) error {
 	}
 
 	// Load cart
-	cart, err := db.Cart(c.Context(), request.CartID)
+	cart, err := store.Cart(c.Context(), request.CartID)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusBadRequest(c, "Cart not found")
 	}
 
 	// Load PortOne settings
-	settings, err := queries.GetSettingByGroup[models.Portone](c.Context(), db)
+	settings, err := store.GetSettingByGroupTyped[models.Portone](c.Context())
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -203,7 +201,7 @@ func CompletePortonePayment(c fiber.Ctx) error {
 	cart.PaymentID = request.PaymentID
 	cart.PaymentStatus = "paid"
 	cart.PaymentSystem = "portone"
-	if err := db.UpdateCart(c.Context(), cart); err != nil {
+	if err := store.UpdateCart(c.Context(), cart); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -233,14 +231,13 @@ func verifyWebhookSignature(body []byte, signature string, secret string) bool {
 // @Failure      401 {string} string "Unauthorized"
 // @Router       /api/payment/portone/webhook [post]
 func PortoneWebhook(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
 	// Read raw body for signature verification
 	body := c.Body()
 
 	// Load PortOne settings
-	settings, err := queries.GetSettingByGroup[models.Portone](c.Context(), db)
+	settings, err := store.GetSettingByGroupTyped[models.Portone](c.Context())
 	if err != nil {
 		log.ErrorStack(err)
 		return c.SendStatus(fiber.StatusInternalServerError)
@@ -312,7 +309,7 @@ func PortoneWebhook(c fiber.Ctx) error {
 	}
 
 	// Load cart
-	cart, err := db.Cart(c.Context(), customData.CartID)
+	cart, err := store.Cart(c.Context(), customData.CartID)
 	if err != nil {
 		log.ErrorStack(err)
 		return c.SendStatus(fiber.StatusOK)
@@ -329,7 +326,7 @@ func PortoneWebhook(c fiber.Ctx) error {
 		cart.PaymentID = paymentID
 		cart.PaymentStatus = "paid"
 		cart.PaymentSystem = "portone"
-		if err := db.UpdateCart(c.Context(), cart); err != nil {
+		if err := store.UpdateCart(c.Context(), cart); err != nil {
 			log.ErrorStack(err)
 		}
 	}

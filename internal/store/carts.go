@@ -37,3 +37,8 @@ func UpdateCart(ctx context.Context, cart *models.Cart) error {
 func PaymentList(ctx context.Context) (map[string]bool, error) {
 	return queries.DB().CartQueries.PaymentList(ctx)
 }
+
+// ValidateCartItems validates cart items against product inventory and pricing.
+func ValidateCartItems(ctx context.Context, products []models.CartProduct, currency string) (*models.CartValidationResult, error) {
+	return queries.ValidateCartItems(ctx, queries.DB(), products, currency)
+}

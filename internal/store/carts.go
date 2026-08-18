@@ -22,3 +22,18 @@ func Cart(ctx context.Context, cartID string) (*models.Cart, error) {
 func BuildCartItems(cart *models.Cart, products *models.Products) []map[string]any {
 	return queries.BuildCartItems(cart, products)
 }
+
+// AddCart creates a new cart.
+func AddCart(ctx context.Context, cart *models.Cart) error {
+	return queries.DB().CartQueries.AddCart(ctx, cart)
+}
+
+// UpdateCart updates an existing cart.
+func UpdateCart(ctx context.Context, cart *models.Cart) error {
+	return queries.DB().CartQueries.UpdateCart(ctx, cart)
+}
+
+// PaymentList retrieves available payment methods.
+func PaymentList(ctx context.Context) (map[string]bool, error) {
+	return queries.DB().CartQueries.PaymentList(ctx)
+}

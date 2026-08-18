@@ -15,8 +15,10 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/pressly/goose/v3"
 
-	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/db/migrations"
+	"github.com/shurco/mycart/internal/goosemigration/queries"
+	"github.com/shurco/mycart/internal/store"
+	"github.com/shurco/mycart/internal/store/db"
 	"github.com/shurco/mycart/pkg/jwtutil"
 	_ "modernc.org/sqlite"
 )
@@ -73,6 +75,11 @@ func SetupTestDB(t *testing.T) func() {
 	}
 
 	queries.NewFromDB(sqlite)
+	store.InitStore(sqlite)
+
+	if err := db.Init(sqlite, "sqlite"); err != nil {
+		t.Fatalf("init store function pointers: %v", err)
+	}
 
 	return func() {
 		_ = sqlite.Close()

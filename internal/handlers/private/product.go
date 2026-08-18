@@ -8,7 +8,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/shurco/mycart/internal/models"
-	"github.com/shurco/mycart/internal/goosemigration/queries"
+	"github.com/shurco/mycart/internal/store"
 	"github.com/shurco/mycart/pkg/csvimport"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/logging"
@@ -29,12 +29,11 @@ import (
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/_/products [get]
 func Products(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
 	p := webutil.ParsePagination(c)
 
-	products, err := db.ListProducts(c.Context(), true, p.Limit, p.Offset, "")
+	products, err := store.ListProducts(c.Context(), true, p.Limit, p.Offset, "")
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -57,7 +56,6 @@ func Products(c fiber.Ctx) error {
 // @Failure      500 {object} webutil.HTTPResponse "Internal server error"
 // @Router       /api/_/products [post]
 func AddProduct(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 	request := &models.Product{}
 
@@ -115,9 +113,9 @@ func AddProduct(c fiber.Ctx) error {
 	var err error
 
 	if request.HasVariants {
-		product, err = db.AddProductWithVariants(c.Context(), request)
+		product, err = store.AddProductWithVariants(c.Context(), request)
 	} else {
-		product, err = db.AddProduct(c.Context(), request)
+		product, err = store.AddProduct(c.Context(), request)
 	}
 
 	if err != nil {
@@ -141,10 +139,9 @@ func AddProduct(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id} [get]
 func Product(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
-	product, err := db.Product(c.Context(), true, productID)
+	product, err := store.Product(c.Context(), true, productID)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -169,7 +166,6 @@ func Product(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id} [patch]
 func UpdateProduct(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 	request := new(models.Product)
 	request.ID = productID
@@ -179,13 +175,13 @@ func UpdateProduct(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	if err := db.UpdateProduct(c.Context(), request); err != nil {
+	if err := store.UpdateProduct(c.Context(), request); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
 
 	// Return updated product
-	product, err := db.Product(c.Context(), true, productID)
+	product, err := store.Product(c.Context(), true, productID)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -207,10 +203,9 @@ func UpdateProduct(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id} [delete]
 func DeleteProduct(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
-	if err := db.DeleteProduct(c.Context(), productID); err != nil {
+	if err := store.DeleteProduct(c.Context(), productID); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -231,10 +226,9 @@ func DeleteProduct(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id}/active [patch]
 func UpdateProductActive(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
-	if err := db.UpdateActive(c.Context(), productID); err != nil {
+	if err := store.UpdateActive(c.Context(), productID); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -255,10 +249,9 @@ func UpdateProductActive(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id}/image [get]
 func ProductImages(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
-	images, err := db.ProductImages(c.Context(), productID)
+	images, err := store.ProductImages(c.Context(), productID)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -283,7 +276,6 @@ func ProductImages(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id}/image [post]
 func AddProductImage(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
 	file, err := c.FormFile("document")
@@ -329,7 +321,7 @@ func AddProductImage(c fiber.Ctx) error {
 		}
 	}
 
-	addedImage, err := db.AddImage(c.Context(), productID, fileUUID, fileExt, fileOrigName)
+	addedImage, err := store.AddImage(c.Context(), productID, fileUUID, fileExt, fileOrigName)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -353,10 +345,9 @@ func AddProductImage(c fiber.Ctx) error {
 func DeleteProductImage(c fiber.Ctx) error {
 	productID := c.Params("product_id")
 	imageID := c.Params("image_id")
-	db := queries.DB()
 	log := logging.New()
 
-	if err := db.DeleteImage(c.Context(), productID, imageID); err != nil {
+	if err := store.DeleteImage(c.Context(), productID, imageID); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -378,10 +369,9 @@ func DeleteProductImage(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id}/digital [get]
 func ProductDigital(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
-	digital, err := db.ProductDigital(c.Context(), productID)
+	digital, err := store.ProductDigital(c.Context(), productID)
 	if err != nil {
 		if errors.Is(err, errors.ErrProductNotFound) {
 			return webutil.StatusNotFound(c)
@@ -408,7 +398,6 @@ func ProductDigital(c fiber.Ctx) error {
 // @Router       /api/_/products/{product_id}/digital [post]
 func AddProductDigital(c fiber.Ctx) error {
 	productID := c.Params("product_id")
-	db := queries.DB()
 	log := logging.New()
 
 	fileTmp, _ := c.FormFile("document")
@@ -422,7 +411,7 @@ func AddProductDigital(c fiber.Ctx) error {
 			return webutil.StatusInternalServerError(c)
 		}
 
-		file, err := db.AddDigitalFile(c.Context(), productID, fileUUID, fileExt, fileOrigName)
+		file, err := store.AddDigitalFile(c.Context(), productID, fileUUID, fileExt, fileOrigName)
 		if err != nil {
 			log.ErrorStack(err)
 			return webutil.StatusInternalServerError(c)
@@ -431,7 +420,7 @@ func AddProductDigital(c fiber.Ctx) error {
 		return webutil.Response(c, fiber.StatusOK, "Digital added", file)
 	}
 
-	data, err := db.AddDigitalData(c.Context(), productID, "")
+	data, err := store.AddDigitalData(c.Context(), productID, "")
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -459,7 +448,6 @@ func UpdateProductDigital(c fiber.Ctx) error {
 	request := new(models.Data)
 	request.ID = c.Params("digital_id")
 	// request.Content = c.Params("digital_id")
-	db := queries.DB()
 	log := logging.New()
 
 	if err := c.Bind().Body(request); err != nil {
@@ -467,7 +455,7 @@ func UpdateProductDigital(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	if err := db.UpdateDigital(c.Context(), request); err != nil {
+	if err := store.UpdateDigital(c.Context(), request); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -490,10 +478,9 @@ func UpdateProductDigital(c fiber.Ctx) error {
 func DeleteProductDigital(c fiber.Ctx) error {
 	productID := c.Params("product_id")
 	digitalID := c.Params("digital_id")
-	db := queries.DB()
 	log := logging.New()
 
-	if err := db.DeleteDigital(c.Context(), productID, digitalID); err != nil {
+	if err := store.DeleteDigital(c.Context(), productID, digitalID); err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
@@ -514,7 +501,6 @@ func DeleteProductDigital(c fiber.Ctx) error {
 // @Failure      400 {object} webutil.HTTPResponse "Validation error"
 // @Router       /api/_/products/slug/generate [post]
 func GenerateSlug(c fiber.Ctx) error {
-	db := queries.DB()
 	log := logging.New()
 
 	var request struct {
@@ -531,7 +517,7 @@ func GenerateSlug(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, "name is required")
 	}
 
-	slug, err := db.GenerateUniqueSlug(c.Context(), request.Name, request.ExcludeID)
+	slug, err := store.GenerateUniqueSlug(c.Context(), request.Name, request.ExcludeID)
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -556,7 +542,6 @@ func GenerateSlug(c fiber.Ctx) error {
 // @Router       /api/_/products/import/preview [post]
 func ImportPreview(c fiber.Ctx) error {
 	log := logging.New()
-	db := queries.DB()
 
 	// Get uploaded file
 	fileHeader, err := c.FormFile("file")
@@ -572,7 +557,7 @@ func ImportPreview(c fiber.Ctx) error {
 	defer file.Close()
 
 	// Create importer and validate
-	importer := csvimport.NewCSVImporter(db.ProductQueries.DB)
+	importer := csvimport.NewCSVImporter(store.ProductQueriesDB().DB)
 	result, _, err := importer.ValidateAndPreview(file)
 	if err != nil {
 		log.ErrorStack(err)
@@ -596,7 +581,6 @@ func ImportPreview(c fiber.Ctx) error {
 // @Router       /api/_/products/import [post]
 func ImportProducts(c fiber.Ctx) error {
 	log := logging.New()
-	db := queries.DB()
 
 	// Get uploaded file
 	fileHeader, err := c.FormFile("file")
@@ -612,7 +596,7 @@ func ImportProducts(c fiber.Ctx) error {
 	defer file.Close()
 
 	// Create importer and validate
-	importer := csvimport.NewCSVImporter(db.ProductQueries.DB)
+	importer := csvimport.NewCSVImporter(store.ProductQueriesDB().DB)
 	_, products, err := importer.ValidateAndPreview(file)
 	if err != nil {
 		log.ErrorStack(err)
@@ -724,10 +708,9 @@ func buildVariantsB3String(product models.Product) string {
 // @Router       /api/_/products/export [get]
 func ExportProducts(c fiber.Ctx) error {
 	log := logging.New()
-	db := queries.DB()
 
 	// Get all products
-	products, err := db.ListProducts(c.Context(), true, 0, 0, "")
+	products, err := store.ListProducts(c.Context(), true, 0, 0, "")
 	if err != nil {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
@@ -748,7 +731,7 @@ func ExportProducts(c fiber.Ctx) error {
 	for _, product := range products.Products {
 		// For products with variants, load full product data to get options and variants
 		if product.HasVariants {
-			fullProduct, err := db.Product(c.Context(), true, product.ID)
+			fullProduct, err := store.Product(c.Context(), true, product.ID)
 			if err != nil {
 				log.ErrorStack(err)
 				// Continue with partial data if we can't load full product

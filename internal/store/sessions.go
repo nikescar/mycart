@@ -26,6 +26,19 @@ func AddSession(ctx context.Context, key, value string, expires int64) error {
 	return err
 }
 
+// GetSession retrieves a session value by key.
+// Returns empty string if session doesn't exist or is expired.
+func GetSession(ctx context.Context, key string) (string, error) {
+	session, err := db.GetSessionFunc(ctx, key)
+	if err != nil {
+		return "", err
+	}
+	if !session.Value.Valid {
+		return "", nil
+	}
+	return session.Value.String, nil
+}
+
 // DeleteSession removes a session from the database using the function pointer.
 func DeleteSession(ctx context.Context, key string) error {
 	return db.DeleteSessionFunc(ctx, key)

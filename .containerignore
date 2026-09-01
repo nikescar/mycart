@@ -1,0 +1,22 @@
+# Git metadata
+.git
+.github
+
+# Documentation
+*.md
+docs/
+
+# Runtime data directories (not needed in container)
+cmd/lc_base/
+cmd/lc_uploads/
+cmd/lc_digitals/
+
+# SQLite database files (use D1 in Cloudflare)
+*.db
+*.db-wal
+*.db-shm
+
+# Node.js dependencies (embedded via go:embed after build)
+node_modules/
+web/admin/node_modules/
+web/site/node_modules/

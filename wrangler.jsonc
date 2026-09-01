@@ -1,0 +1,37 @@
+{
+  // Cloudflare Container Workers configuration for myCart
+  "name": "mycart",
+  "type": "container",
+  "compatibility_date": "2024-01-01",
+
+  // Container configuration
+  "container": {
+    "dockerfile": "./Dockerfile",
+    "port": 8080
+  },
+
+  // Cloudflare service bindings
+  "bindings": [
+    {
+      "type": "d1",
+      "name": "DB",
+      "database_id": "<YOUR_D1_DATABASE_ID>"
+    },
+    {
+      "type": "r2_bucket",
+      "name": "UPLOADS",
+      "bucket_name": "<YOUR_R2_BUCKET_NAME>"
+    }
+  ],
+
+  // Environment variables for runtime
+  "env": {
+    "CF_WORKER": "true",
+    "D1_DATABASE_ID": "<YOUR_D1_DATABASE_ID>",
+    "D1_API_TOKEN": "<YOUR_API_TOKEN>",
+    "R2_BUCKET_NAME": "<YOUR_R2_BUCKET_NAME>",
+    "R2_ACCOUNT_ID": "<YOUR_ACCOUNT_ID>",
+    "R2_ACCESS_KEY_ID": "<YOUR_ACCESS_KEY_ID>",
+    "R2_SECRET_ACCESS_KEY": "<YOUR_SECRET_KEY>"
+  }
+}

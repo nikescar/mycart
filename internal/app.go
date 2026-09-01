@@ -21,9 +21,11 @@ import (
 	"github.com/shurco/mycart/internal/middleware"
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/internal/routes"
+	"github.com/shurco/mycart/internal/store"
 	"github.com/shurco/mycart/migrations"
 	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/logging"
+	"github.com/shurco/mycart/pkg/storage"
 	"github.com/shurco/mycart/pkg/webutil"
 )
 
@@ -56,6 +58,20 @@ func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
 
 	// Initialize queries with the database abstraction
 	if err := queries.New(db, migrations.Embed()); err != nil {
+		log.Err(err).Send()
+		return err
+	}
+
+	// Load storage configuration and create storage
+	storageConfig := config.LoadStorageConfig()
+	s, err := storage.New(storageConfig)
+	if err != nil {
+		log.Err(err).Send()
+		return err
+	}
+
+	// Initialize store with the storage abstraction
+	if err := store.New(s); err != nil {
 		log.Err(err).Send()
 		return err
 	}

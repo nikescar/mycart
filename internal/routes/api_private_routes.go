@@ -4,6 +4,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	handlers "github.com/shurco/mycart/internal/handlers/private"
+	"github.com/shurco/mycart/internal/handlers/maintenance"
 	"github.com/shurco/mycart/internal/middleware"
 )
 
@@ -61,4 +62,14 @@ func ApiPrivateRoutes(c *fiber.App) {
 	carts.Get("/", handlers.Carts)
 	carts.Get("/:cart_id<len(15)>", handlers.Cart)
 	carts.Post("/:cart_id<len(15)>/mail", handlers.CartSendMail)
+
+	// maintenance
+	maintenanceGroup := c.Group("/_/api/maintenance")
+	maintenanceGroup.Get("/status", maintenance.GetStatus)
+	maintenanceGroup.Post("/backup", maintenance.BackupDatabase)
+	maintenanceGroup.Post("/restore", maintenance.RestoreDatabase)
+	maintenanceGroup.Post("/switch", maintenance.SwitchDatabase)
+	maintenanceGroup.Post("/wrangler/install", maintenance.InstallWrangler)
+	maintenanceGroup.Post("/wrangler/uninstall", maintenance.UninstallWrangler)
+	maintenanceGroup.Post("/enable-and-restart", maintenance.EnableMaintenanceAndRestart)
 }

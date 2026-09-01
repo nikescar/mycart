@@ -123,6 +123,7 @@ func setupFiberApp(noSite bool) (*fiber.App, error) {
 
 	app := fiber.New(config)
 	middleware.Fiber(app, log.Logger)
+	app.Use(middleware.MaintenanceMode())
 
 	return app, nil
 }

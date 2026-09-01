@@ -243,7 +243,7 @@ func TestValidateCartItems_Success(t *testing.T) {
 	if err := db.UpdateActive(ctx, product.ID); err != nil {
 		t.Fatalf("UpdateActive failed: %v", err)
 	}
-	if _, err := db.ProductQueries.DB.ExecContext(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 10, product.ID); err != nil {
+	if _, err := db.ProductQueries.DB.Exec(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 10, product.ID); err != nil {
 		t.Fatalf("Update quantity failed: %v", err)
 	}
 
@@ -296,7 +296,7 @@ func TestValidateCartItems_QuantityUnavailable(t *testing.T) {
 	if err := db.UpdateActive(ctx, product.ID); err != nil {
 		t.Fatalf("UpdateActive failed: %v", err)
 	}
-	if _, err := db.ProductQueries.DB.ExecContext(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 3, product.ID); err != nil {
+	if _, err := db.ProductQueries.DB.Exec(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 3, product.ID); err != nil {
 		t.Fatalf("Update quantity failed: %v", err)
 	}
 
@@ -554,7 +554,7 @@ func TestValidateCartItems_PriceChanged(t *testing.T) {
 	if err := db.UpdateActive(ctx, createdProduct.ID); err != nil {
 		t.Fatalf("UpdateActive failed: %v", err)
 	}
-	if _, err := db.ProductQueries.DB.ExecContext(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 10, createdProduct.ID); err != nil {
+	if _, err := db.ProductQueries.DB.Exec(ctx, "UPDATE product SET quantity = ? WHERE id = ?", 10, createdProduct.ID); err != nil {
 		t.Fatalf("Update quantity failed: %v", err)
 	}
 

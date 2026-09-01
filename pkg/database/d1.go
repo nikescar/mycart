@@ -48,6 +48,11 @@ func (d *d1DB) QueryRow(ctx context.Context, query string, args ...interface{}) 
 	return &sql.Row{}
 }
 
+// Prepare creates a prepared statement (stub - HTTP API deferred)
+func (d *d1DB) Prepare(ctx context.Context, query string) (Stmt, error) {
+	return nil, fmt.Errorf("D1 Prepare not yet implemented")
+}
+
 // Begin starts a transaction (no-op for D1)
 func (d *d1DB) Begin(ctx context.Context) (Tx, error) {
 	// D1 doesn't support traditional transactions via HTTP API
@@ -89,6 +94,11 @@ func (t *d1Tx) Query(ctx context.Context, query string, args ...interface{}) (*s
 // QueryRow executes a query in transaction (stub - HTTP API deferred)
 func (t *d1Tx) QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	return &sql.Row{}
+}
+
+// Prepare creates a prepared statement in transaction (stub - HTTP API deferred)
+func (t *d1Tx) Prepare(ctx context.Context, query string) (Stmt, error) {
+	return nil, fmt.Errorf("D1 transaction Prepare not yet implemented")
 }
 
 // Commit commits the transaction (no-op)

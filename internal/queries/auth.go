@@ -2,21 +2,21 @@ package queries
 
 import (
 	"context"
-	"database/sql"
 
+	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/errors"
 )
 
-// AuthQueries is a struct that embeds *sql.DB to provide database functionality.
+// AuthQueries is a struct that uses database.Database to provide database functionality.
 // This structure can be used to create methods that will execute SQL queries related to authentication.
 type AuthQueries struct {
-	*sql.DB
+	DB database.Database
 }
 
 // GetPasswordByEmail retrieves the password for a user by their email.
 func (q *AuthQueries) GetPasswordByEmail(ctx context.Context, email string) (string, error) {
 	query := `SELECT key, value FROM setting WHERE key IN ('email', 'password')`
-	rows, err := q.DB.QueryContext(ctx, query)
+	rows, err := q.DB.Query(ctx, query)
 	if err != nil {
 		return "", err
 	}

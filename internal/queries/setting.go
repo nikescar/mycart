@@ -2,22 +2,21 @@ package queries
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/shurco/mycart/internal/models"
+	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/security"
 	"github.com/shurco/mycart/pkg/strutil"
 )
 
-// SettingQueries wraps a sql.DB connection allowing for easy querying and interaction
-// with the database related to application settings.
+// SettingQueries uses database.Database to provide database functionality for settings operations.
 type SettingQueries struct {
-	*sql.DB
+	DB database.Database
 }
 
 // GroupFieldMap generates a map of fields based on the type of settings.
@@ -175,7 +174,7 @@ func (q *SettingQueries) GetSettingByGroup(ctx context.Context, settings any) (a
 	}
 
 	query := fmt.Sprintf("SELECT key, value FROM setting WHERE key IN (%s)", strings.Repeat("?, ", len(keys)-1)+"?")
-	rows, err := q.DB.QueryContext(ctx, query, keys...)
+	rows, err := q.DB.Query(ctx, query, keys...)
 	if err != nil {
 		return nil, err
 	}
@@ -241,13 +240,13 @@ func serializeSettingValue(valuePtr any) (string, bool, error) {
 func (q *SettingQueries) UpdateSettingByGroup(ctx context.Context, settings any) error {
 	fieldMap := q.GroupFieldMap(settings)
 
-	tx, err := q.DB.BeginTx(ctx, nil)
+	tx, err := q.DB.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	upsertStmt, err := tx.PrepareContext(ctx, `
+	upsertStmt, err := tx.Prepare(ctx, `
 		INSERT INTO setting (id, key, value) VALUES (?, ?, ?)
 		ON CONFLICT(key) DO UPDATE SET value = excluded.value
 	`)
@@ -266,7 +265,7 @@ func (q *SettingQueries) UpdateSettingByGroup(ctx context.Context, settings any)
 		}
 
 		newID := security.RandomString()
-		if _, err = upsertStmt.ExecContext(ctx, newID, key, value); err != nil {
+		if _, err = upsertStmt.Exec(ctx, newID, key, value); err != nil {
 			return err
 		}
 	}
@@ -278,7 +277,7 @@ func (q *SettingQueries) UpdateSettingByGroup(ctx context.Context, settings any)
 func (q *SettingQueries) UpdatePassword(ctx context.Context, password *models.Password) error {
 	var passwordHash string
 	query := `SELECT value FROM setting WHERE key = 'password'`
-	if err := q.DB.QueryRowContext(ctx, query).Scan(&passwordHash); err != nil {
+	if err := q.DB.QueryRow(ctx, query).Scan(&passwordHash); err != nil {
 		return errors.ErrUserNotFound
 	}
 	compareUserPassword := security.ComparePasswords(passwordHash, password.Old)
@@ -287,7 +286,7 @@ func (q *SettingQueries) UpdatePassword(ctx context.Context, password *models.Pa
 	}
 
 	query = `UPDATE setting SET value = ? WHERE key = 'password'`
-	_, err := q.DB.ExecContext(ctx, query, security.GeneratePassword(password.New))
+	_, err := q.DB.Exec(ctx, query, security.GeneratePassword(password.New))
 	return err
 }
 
@@ -300,7 +299,7 @@ func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (ma
 	}
 
 	query := fmt.Sprintf("SELECT id, key, value FROM setting WHERE key IN (%s)", strings.Repeat("?, ", len(key)-1)+"?")
-	rows, err := q.DB.QueryContext(ctx, query, strutil.ToAny(key...)...)
+	rows, err := q.DB.Query(ctx, query, strutil.ToAny(key...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -325,6 +324,6 @@ func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (ma
 // UpdateSettingByKey updates the value of a setting in the database based on the provided key.
 func (q *SettingQueries) UpdateSettingByKey(ctx context.Context, setting *models.SettingName) error {
 	query := `UPDATE setting SET value = ? WHERE key = ? `
-	_, err := q.DB.ExecContext(ctx, query, setting.Value, setting.Key)
+	_, err := q.DB.Exec(ctx, query, setting.Value, setting.Key)
 	return err
 }

@@ -17,10 +17,12 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
 
+	"github.com/shurco/mycart/internal/config"
 	"github.com/shurco/mycart/internal/middleware"
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/internal/routes"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/logging"
 	"github.com/shurco/mycart/pkg/webutil"
 )
@@ -44,7 +46,16 @@ func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
 
 	schema, mainAddr := determineSchemaAndAddr(httpAddr, httpsAddr)
 
-	if err := queries.New(migrations.Embed()); err != nil {
+	// Load database configuration and create database
+	dbConfig := config.LoadDatabaseConfig()
+	db, err := database.New(dbConfig)
+	if err != nil {
+		log.Err(err).Send()
+		return err
+	}
+
+	// Initialize queries with the database abstraction
+	if err := queries.New(db, migrations.Embed()); err != nil {
 		log.Err(err).Send()
 		return err
 	}

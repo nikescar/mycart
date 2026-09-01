@@ -39,6 +39,14 @@ func (s *sqliteDB) QueryRow(ctx context.Context, query string, args ...interface
 	return s.db.QueryRowContext(ctx, query, args...)
 }
 
+func (s *sqliteDB) Prepare(ctx context.Context, query string) (Stmt, error) {
+	stmt, err := s.db.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	return &sqliteStmt{stmt: stmt}, nil
+}
+
 func (s *sqliteDB) Begin(ctx context.Context) (Tx, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -76,10 +84,39 @@ func (t *sqliteTx) QueryRow(ctx context.Context, query string, args ...interface
 	return t.tx.QueryRowContext(ctx, query, args...)
 }
 
+func (t *sqliteTx) Prepare(ctx context.Context, query string) (Stmt, error) {
+	stmt, err := t.tx.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare statement in transaction: %w", err)
+	}
+	return &sqliteStmt{stmt: stmt}, nil
+}
+
 func (t *sqliteTx) Commit() error {
 	return t.tx.Commit()
 }
 
 func (t *sqliteTx) Rollback() error {
 	return t.tx.Rollback()
+}
+
+// sqliteStmt implements Stmt interface
+type sqliteStmt struct {
+	stmt *sql.Stmt
+}
+
+func (s *sqliteStmt) Exec(ctx context.Context, args ...interface{}) (sql.Result, error) {
+	return s.stmt.ExecContext(ctx, args...)
+}
+
+func (s *sqliteStmt) Query(ctx context.Context, args ...interface{}) (*sql.Rows, error) {
+	return s.stmt.QueryContext(ctx, args...)
+}
+
+func (s *sqliteStmt) QueryRow(ctx context.Context, args ...interface{}) *sql.Row {
+	return s.stmt.QueryRowContext(ctx, args...)
+}
+
+func (s *sqliteStmt) Close() error {
+	return s.stmt.Close()
 }

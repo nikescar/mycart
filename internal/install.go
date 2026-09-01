@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/shurco/mycart/internal/config"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 )
 
 // InstallAdmin performs first-time setup with the given admin credentials.
@@ -21,7 +23,13 @@ func InstallAdmin(ctx context.Context, install *models.Install) error {
 		return fmt.Errorf("init: %w", err)
 	}
 
-	if err := queries.New(migrations.Embed()); err != nil {
+	dbConfig := config.LoadDatabaseConfig()
+	db, err := database.New(dbConfig)
+	if err != nil {
+		return fmt.Errorf("create database: %w", err)
+	}
+
+	if err := queries.New(db, migrations.Embed()); err != nil {
 		return fmt.Errorf("connect database: %w", err)
 	}
 

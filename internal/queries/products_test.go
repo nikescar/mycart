@@ -432,7 +432,7 @@ func TestAddProductWithVariants(t *testing.T) {
 
 	// Verify options were created
 	var optionCount int
-	err = db.ProductQueries.QueryRowContext(ctx, "SELECT COUNT(*) FROM product_option WHERE product_id = ?", product.ID).Scan(&optionCount)
+	err = db.ProductQueries.DB.QueryRow(ctx, "SELECT COUNT(*) FROM product_option WHERE product_id = ?", product.ID).Scan(&optionCount)
 	if err != nil {
 		t.Fatalf("Failed to count options: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestAddProductWithVariants(t *testing.T) {
 
 	// Verify option values were created
 	var valueCount int
-	err = db.ProductQueries.QueryRowContext(ctx, "SELECT COUNT(*) FROM product_option_value WHERE option_id = ?", product.Options[0].ID).Scan(&valueCount)
+	err = db.ProductQueries.DB.QueryRow(ctx, "SELECT COUNT(*) FROM product_option_value WHERE option_id = ?", product.Options[0].ID).Scan(&valueCount)
 	if err != nil {
 		t.Fatalf("Failed to count option values: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestAddProductWithVariants(t *testing.T) {
 
 	// Verify variants were created
 	var variantCount int
-	err = db.ProductQueries.QueryRowContext(ctx, "SELECT COUNT(*) FROM product_variant WHERE product_id = ?", product.ID).Scan(&variantCount)
+	err = db.ProductQueries.DB.QueryRow(ctx, "SELECT COUNT(*) FROM product_variant WHERE product_id = ?", product.ID).Scan(&variantCount)
 	if err != nil {
 		t.Fatalf("Failed to count variants: %v", err)
 	}
@@ -527,7 +527,7 @@ func TestGenerateUniqueSlug(t *testing.T) {
 	db, ctx := bootstrap(t)
 
 	// Create a product with slug "test-product"
-	_, err := db.ProductQueries.ExecContext(ctx, `
+	_, err := db.ProductQueries.DB.Exec(ctx, `
 		INSERT INTO product (id, name, slug, desc, amount, digital, active, deleted)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`, security.RandomString(), "Test", "test-product", "desc", 1000, "file", true, false)

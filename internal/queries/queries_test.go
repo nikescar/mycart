@@ -8,6 +8,7 @@ import (
 
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 )
 
 func withTempBase(t *testing.T) func() {
@@ -27,15 +28,21 @@ func Test_queries_init_and_settings(t *testing.T) {
 	cleanup := withTempBase(t)
 	defer cleanup()
 
-	if err := New(migrations.Embed()); err != nil {
+	db, err := database.NewSQLite("./lc_base/data.db")
+	if err != nil {
+		t.Fatalf("create database: %v", err)
+	}
+	defer db.Close()
+
+	if err := New(db, migrations.Embed()); err != nil {
 		t.Fatalf("init queries: %v", err)
 	}
 
-	db := DB()
+	queries := DB()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	setting, err := db.GetSettingByKey(ctx, "installed")
+	setting, err := queries.GetSettingByKey(ctx, "installed")
 	if err != nil {
 		t.Fatalf("get setting: %v", err)
 	}
@@ -47,14 +54,21 @@ func Test_queries_init_and_settings(t *testing.T) {
 func Test_queries_page_crud(t *testing.T) {
 	cleanup := withTempBase(t)
 	defer cleanup()
-	if err := New(migrations.Embed()); err != nil {
+
+	dbInst, err := database.NewSQLite("./lc_base/data.db")
+	if err != nil {
+		t.Fatalf("create database: %v", err)
+	}
+	defer dbInst.Close()
+
+	if err := New(dbInst, migrations.Embed()); err != nil {
 		t.Fatalf("init queries: %v", err)
 	}
-	db := DB()
+	queries := DB()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	page, err := db.AddPage(ctx, &models.Page{Name: "Test", Slug: "test", Position: "footer"})
+	page, err := queries.AddPage(ctx, &models.Page{Name: "Test", Slug: "test", Position: "footer"})
 	if err != nil {
 		t.Fatalf("add page: %v", err)
 	}
@@ -62,7 +76,7 @@ func Test_queries_page_crud(t *testing.T) {
 		t.Fatalf("expected created timestamp")
 	}
 
-	list, _, err := db.ListPages(ctx, true, 0, 0)
+	list, _, err := queries.ListPages(ctx, true, 0, 0)
 	if err != nil {
 		t.Fatalf("list pages: %v", err)
 	}
@@ -70,7 +84,7 @@ func Test_queries_page_crud(t *testing.T) {
 		t.Fatalf("expected pages > 0")
 	}
 
-	if err := db.UpdatePageContent(ctx, &models.Page{Core: models.Core{ID: page.ID}, Content: ptr("content")}); err != nil {
+	if err := queries.UpdatePageContent(ctx, &models.Page{Core: models.Core{ID: page.ID}, Content: ptr("content")}); err != nil {
 		t.Fatalf("update content: %v", err)
 	}
 }

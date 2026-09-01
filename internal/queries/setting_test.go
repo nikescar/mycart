@@ -7,6 +7,7 @@ import (
 
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 )
 
 // bootstrap initialises a fresh DB in a temp workdir and returns the *Base.
@@ -16,7 +17,14 @@ func bootstrap(t *testing.T) (*Base, context.Context) {
 	t.Helper()
 	cleanup := withTempBase(t)
 	t.Cleanup(cleanup)
-	if err := New(migrations.Embed()); err != nil {
+
+	dbInst, err := database.NewSQLite("./lc_base/data.db")
+	if err != nil {
+		t.Fatalf("create database: %v", err)
+	}
+	t.Cleanup(func() { dbInst.Close() })
+
+	if err := New(dbInst, migrations.Embed()); err != nil {
 		t.Fatalf("init queries: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

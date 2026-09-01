@@ -60,3 +60,10 @@ func Migrate(dbPath string, migrations embed.FS) error {
 
 	return goose.Up(db, ".")
 }
+
+// MigrateDB performs database migrations on an existing *sql.DB connection
+func MigrateDB(db *sql.DB, migrations embed.FS) error {
+	goose.SetBaseFS(migrations)
+	goose.SetTableName("migrate_db_version")
+	return goose.Up(db, ".")
+}

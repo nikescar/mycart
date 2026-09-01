@@ -10,16 +10,15 @@ import (
 	"strings"
 
 	"github.com/shurco/mycart/internal/models"
+	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/errors"
 	"github.com/shurco/mycart/pkg/security"
 	"github.com/shurco/mycart/pkg/slugify"
 )
 
-// ProductQueries is a struct that embeds a pointer to an sql.DB.
-// This allows for direct access to the database methods via the ProductQueries struct,
-// effectively extending it with all the functionality of *sql.DB.
+// ProductQueries is a struct that uses database.Database to provide database functionality for product operations.
 type ProductQueries struct {
-	*sql.DB
+	DB database.Database
 }
 
 // ListProducts retrieves a list of products from the database.
@@ -100,7 +99,7 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 		}
 	}
 
-	rows, err := q.DB.QueryContext(ctx, query, params...)
+	rows, err := q.DB.Query(ctx, query, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +163,7 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 	// Count total records (without pagination params)
 	countQuery := `SELECT COUNT(DISTINCT product.id) FROM product`
 	countQuery += queryPublic
-	err = q.DB.QueryRowContext(ctx, countQuery+queryAddon, countParams...).Scan(&products.Total)
+	err = q.DB.QueryRow(ctx, countQuery+queryAddon, countParams...).Scan(&products.Total)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
@@ -243,7 +242,7 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 		scanArgs = append(scanArgs, &digitalFilled)
 	}
 
-	err := q.DB.QueryRowContext(ctx, query, id).Scan(scanArgs...)
+	err := q.DB.QueryRow(ctx, query, id).Scan(scanArgs...)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrProductNotFound
@@ -311,7 +310,7 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 			WHERE product_id = ?
 			ORDER BY position`
 
-		optionRows, err := q.DB.QueryContext(ctx, optionsQuery, product.ID)
+		optionRows, err := q.DB.Query(ctx, optionsQuery, product.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -343,7 +342,7 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 				WHERE option_id IN (SELECT id FROM product_option WHERE product_id = ?)
 				ORDER BY option_id, position`
 
-			valuesRows, err := q.DB.QueryContext(ctx, valuesQuery, product.ID)
+			valuesRows, err := q.DB.Query(ctx, valuesQuery, product.ID)
 			if err != nil {
 				return nil, err
 			}
@@ -376,7 +375,7 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 			FROM product_variant
 			WHERE product_id = ? AND deleted = 0`
 
-		variantRows, err := q.DB.QueryContext(ctx, variantsQuery, product.ID)
+		variantRows, err := q.DB.Query(ctx, variantsQuery, product.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -432,13 +431,13 @@ func (q *ProductQueries) AddProduct(ctx context.Context, product *models.Product
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE)
 			RETURNING strftime('%s', created)
 	`
-	stmt, err := q.DB.PrepareContext(ctx, query)
+	stmt, err := q.DB.Prepare(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = stmt.Close() }()
 
-	err = stmt.QueryRowContext(ctx,
+	err = stmt.QueryRow(ctx,
 		product.ID, product.Name, product.Amount, product.Slug,
 		metadata, attributes, product.Brief, product.Description, product.Digital.Type,
 	).Scan(&product.Created)
@@ -458,7 +457,7 @@ func (q *ProductQueries) UpdateProduct(ctx context.Context, product *models.Prod
 	}
 
 	// Start transaction for atomic updates
-	tx, err := q.DB.BeginTx(ctx, nil)
+	tx, err := q.DB.Begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -502,8 +501,8 @@ func (q *ProductQueries) marshalProductJSON(product *models.Product) (metadata, 
 }
 
 // updateProductMainFields executes the UPDATE statement for main product fields
-func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx *sql.Tx, product *models.Product, metadata, attributes, seo []byte) error {
-	stmt, err := tx.PrepareContext(ctx, `
+func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx database.Tx, product *models.Product, metadata, attributes, seo []byte) error {
+	stmt, err := tx.Prepare(ctx, `
 		UPDATE product SET
 			name = ?,
 			brief = ?,
@@ -530,7 +529,7 @@ func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx *sql.Tx
 		productSKU = sql.NullString{String: product.SKU, Valid: true}
 	}
 
-	_, err = stmt.ExecContext(ctx,
+	_, err = stmt.Exec(ctx,
 		product.Name,
 		product.Brief,
 		product.Description,
@@ -552,16 +551,16 @@ func (q *ProductQueries) updateProductMainFields(ctx context.Context, tx *sql.Tx
 }
 
 // syncProductVariants handles all variant-related CRUD operations
-func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, product *models.Product) error {
+func (q *ProductQueries) syncProductVariants(ctx context.Context, tx database.Tx, product *models.Product) error {
 	if product.HasVariants {
 		// Delete existing options (cascades to option values)
-		_, err := tx.ExecContext(ctx, `DELETE FROM product_option WHERE product_id = ?`, product.ID)
+		_, err := tx.Exec(ctx, `DELETE FROM product_option WHERE product_id = ?`, product.ID)
 		if err != nil {
 			return fmt.Errorf("delete options: %w", err)
 		}
 
 		// Delete existing variants
-		_, err = tx.ExecContext(ctx, `DELETE FROM product_variant WHERE product_id = ?`, product.ID)
+		_, err = tx.Exec(ctx, `DELETE FROM product_variant WHERE product_id = ?`, product.ID)
 		if err != nil {
 			return fmt.Errorf("delete variants: %w", err)
 		}
@@ -570,7 +569,7 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 		for _, option := range product.Options {
 			optionID := security.RandomString()
 
-			_, err = tx.ExecContext(ctx,
+			_, err = tx.Exec(ctx,
 				`INSERT INTO product_option (id, product_id, name, position) VALUES (?, ?, ?, ?)`,
 				optionID, product.ID, option.Name, option.Position,
 			)
@@ -581,7 +580,7 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 			// Insert option values
 			for _, value := range option.Values {
 				valueID := security.RandomString()
-				_, err = tx.ExecContext(ctx,
+				_, err = tx.Exec(ctx,
 					`INSERT INTO product_option_value (id, option_id, value, position) VALUES (?, ?, ?, ?)`,
 					valueID, optionID, value.Value, value.Position,
 				)
@@ -607,7 +606,7 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 				skuValue = sql.NullString{String: variant.SKU, Valid: true}
 			}
 
-			_, err = tx.ExecContext(ctx,
+			_, err = tx.Exec(ctx,
 				`INSERT INTO product_variant (id, product_id, sku, price_surcharge, quantity, option_values, active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 				variantID, product.ID, skuValue, variant.PriceSurcharge, variant.Quantity, string(optionValuesJSON), variant.Active,
 			)
@@ -617,11 +616,11 @@ func (q *ProductQueries) syncProductVariants(ctx context.Context, tx *sql.Tx, pr
 		}
 	} else {
 		// If has_variants is false, clean up any existing variant data
-		_, err := tx.ExecContext(ctx, `DELETE FROM product_option WHERE product_id = ?`, product.ID)
+		_, err := tx.Exec(ctx, `DELETE FROM product_option WHERE product_id = ?`, product.ID)
 		if err != nil {
 			return fmt.Errorf("cleanup options: %w", err)
 		}
-		_, err = tx.ExecContext(ctx, `DELETE FROM product_variant WHERE product_id = ?`, product.ID)
+		_, err = tx.Exec(ctx, `DELETE FROM product_variant WHERE product_id = ?`, product.ID)
 		if err != nil {
 			return fmt.Errorf("cleanup variants: %w", err)
 		}
@@ -637,7 +636,7 @@ func (q *ProductQueries) DeleteProduct(ctx context.Context, id string) error {
 	// to a paid cart). Refuse such deletes; admins should deactivate the
 	// product instead.
 	var sold int
-	err := q.DB.QueryRowContext(ctx,
+	err := q.DB.QueryRow(ctx,
 		`SELECT COUNT(1) FROM digital_data WHERE product_id = ? AND cart_id IS NOT NULL`, id).Scan(&sold)
 	if err != nil {
 		return err
@@ -646,7 +645,7 @@ func (q *ProductQueries) DeleteProduct(ctx context.Context, id string) error {
 		return errors.ErrProductSold
 	}
 
-	_, err = q.DB.ExecContext(ctx, `DELETE FROM product WHERE id = ?`, id)
+	_, err = q.DB.Exec(ctx, `DELETE FROM product WHERE id = ?`, id)
 	return err
 }
 
@@ -677,7 +676,7 @@ func (q *ProductQueries) IsProduct(ctx context.Context, slug string) bool {
 				WHERE product.slug = ? AND product.deleted = 0 AND product.active = 1
 			)
 	`
-	err := q.DB.QueryRowContext(ctx, query, slug).Scan(&exists)
+	err := q.DB.QueryRow(ctx, query, slug).Scan(&exists)
 	return err == nil && exists
 }
 
@@ -685,7 +684,7 @@ func (q *ProductQueries) IsProduct(ctx context.Context, slug string) bool {
 // It takes a context and an ID as arguments, and returns an error if the operation fails.
 func (q *ProductQueries) UpdateActive(ctx context.Context, id string) error {
 	query := `UPDATE product SET active = NOT active, updated = datetime('now') WHERE id = ?`
-	_, err := q.DB.ExecContext(ctx, query, id)
+	_, err := q.DB.Exec(ctx, query, id)
 	return err
 }
 
@@ -710,7 +709,7 @@ func (q *ProductQueries) ProductImages(ctx context.Context, id string) (*[]model
 // fetchProductImages performs database query to get image(s) for a product
 func (q *ProductQueries) fetchProductImages(ctx context.Context, id string) ([]productImage, error) {
 	query := `SELECT id, name, ext FROM product_image WHERE product_id = ?`
-	rows, err := q.DB.QueryContext(ctx, query, id)
+	rows, err := q.DB.Query(ctx, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrProductNotFound
@@ -752,7 +751,7 @@ func (q *ProductQueries) AddImage(ctx context.Context, productID, fileUUID, file
 	}
 
 	query := `INSERT INTO product_image (id, product_id, name, ext, orig_name) VALUES (?, ?, ?, ?, ?)`
-	_, err := q.DB.ExecContext(ctx, query, file.ID, productID, file.Name, file.Ext, origName)
+	_, err := q.DB.Exec(ctx, query, file.ID, productID, file.Name, file.Ext, origName)
 	if err != nil {
 		return nil, err
 	}
@@ -782,7 +781,7 @@ type imageInfo struct {
 }
 
 func (q *ProductQueries) deleteImageRecord(ctx context.Context, productID, imageID string) (*imageInfo, error) {
-	tx, err := q.DB.BeginTx(ctx, nil)
+	tx, err := q.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -790,7 +789,7 @@ func (q *ProductQueries) deleteImageRecord(ctx context.Context, productID, image
 
 	// Get image info before deletion
 	info := &imageInfo{}
-	err = tx.QueryRowContext(ctx,
+	err = tx.QueryRow(ctx,
 		`SELECT name, ext FROM product_image WHERE id = ?`,
 		imageID).Scan(&info.name, &info.ext)
 	if err != nil {
@@ -798,7 +797,7 @@ func (q *ProductQueries) deleteImageRecord(ctx context.Context, productID, image
 	}
 
 	// Delete the database record
-	if _, err := tx.ExecContext(ctx,
+	if _, err := tx.Exec(ctx,
 		`DELETE FROM product_image WHERE id = ? AND product_id = ?`,
 		imageID, productID); err != nil {
 		return nil, err
@@ -848,7 +847,7 @@ func (q *ProductQueries) ProductDigital(ctx context.Context, productID string) (
 			WHERE p.id = ?
 	`
 
-	rows, err := q.DB.QueryContext(ctx, query, productID)
+	rows, err := q.DB.Query(ctx, query, productID)
 	if err != nil {
 		return nil, err
 	}
@@ -902,7 +901,7 @@ func (q *ProductQueries) ProductDigital(ctx context.Context, productID string) (
 func (q *ProductQueries) DigitalFile(ctx context.Context, productID, fileID string) (*models.File, error) {
 	file := &models.File{}
 	query := `SELECT id, name, ext, orig_name FROM digital_file WHERE id = ? AND product_id = ?`
-	err := q.DB.QueryRowContext(ctx, query, fileID, productID).
+	err := q.DB.QueryRow(ctx, query, fileID, productID).
 		Scan(&file.ID, &file.Name, &file.Ext, &file.OrigName)
 	if err != nil {
 		if stderrors.Is(err, sql.ErrNoRows) {
@@ -922,7 +921,7 @@ func (q *ProductQueries) AddDigitalFile(ctx context.Context, productID, fileUUID
 	}
 
 	query := `INSERT INTO digital_file (id, product_id, name, ext, orig_name) VALUES (?, ?, ?, ?, ?)`
-	_, err := q.DB.ExecContext(ctx, query, file.ID, productID, file.Name, file.Ext, origName)
+	_, err := q.DB.Exec(ctx, query, file.ID, productID, file.Name, file.Ext, origName)
 	if err != nil {
 		return nil, err
 	}
@@ -938,7 +937,7 @@ func (q *ProductQueries) AddDigitalData(ctx context.Context, productID, content 
 	}
 
 	query := `INSERT INTO digital_data (id, product_id, content) VALUES (?, ?, ?)`
-	_, err := q.DB.ExecContext(ctx, query, file.ID, productID, file.Content)
+	_, err := q.DB.Exec(ctx, query, file.ID, productID, file.Content)
 	if err != nil {
 		return nil, err
 	}
@@ -949,7 +948,7 @@ func (q *ProductQueries) AddDigitalData(ctx context.Context, productID, content 
 // UpdateDigital updates the content of a digital data record in the database.
 func (q *ProductQueries) UpdateDigital(ctx context.Context, digital *models.Data) error {
 	query := `UPDATE digital_data SET content = ? WHERE id = ?`
-	_, err := q.DB.ExecContext(ctx, query, digital.Content, digital.ID)
+	_, err := q.DB.Exec(ctx, query, digital.Content, digital.ID)
 	return err
 }
 
@@ -964,7 +963,7 @@ func (q *ProductQueries) DeleteDigital(ctx context.Context, productID, digitalID
 				WHERE p.id = ?
 		`
 
-	err := q.DB.QueryRowContext(ctx, query, digitalID, productID).Scan(&digitalType, &name, &ext)
+	err := q.DB.QueryRow(ctx, query, digitalID, productID).Scan(&digitalType, &name, &ext)
 	if err != nil {
 		return err
 	}
@@ -972,7 +971,7 @@ func (q *ProductQueries) DeleteDigital(ctx context.Context, productID, digitalID
 	switch digitalType {
 	case "file":
 		query = `DELETE FROM digital_file WHERE id = ? AND product_id = ?`
-		if _, err := q.DB.ExecContext(ctx, query, digitalID, productID); err != nil {
+		if _, err := q.DB.Exec(ctx, query, digitalID, productID); err != nil {
 			return fmt.Errorf("deleting from digital_file: %w", err)
 		}
 
@@ -983,7 +982,7 @@ func (q *ProductQueries) DeleteDigital(ctx context.Context, productID, digitalID
 
 	case "data":
 		query = `DELETE FROM digital_data WHERE id = ? AND product_id = ?`
-		if _, err := q.DB.ExecContext(ctx, query, digitalID, productID); err != nil {
+		if _, err := q.DB.Exec(ctx, query, digitalID, productID); err != nil {
 			return fmt.Errorf("deleting from digital_data: %w", err)
 		}
 	}
@@ -993,7 +992,7 @@ func (q *ProductQueries) DeleteDigital(ctx context.Context, productID, digitalID
 
 // AddProductWithVariants adds a product with its options and variants in a transaction
 func (q *ProductQueries) AddProductWithVariants(ctx context.Context, product *models.Product) (*models.Product, error) {
-	tx, err := q.DB.BeginTx(ctx, nil)
+	tx, err := q.DB.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
@@ -1017,7 +1016,7 @@ func (q *ProductQueries) AddProductWithVariants(ctx context.Context, product *mo
 		return nil, fmt.Errorf("marshal attributes: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, query,
+	_, err = tx.Exec(ctx, query,
 		product.ID,
 		product.Name,
 		product.Brief,
@@ -1059,9 +1058,9 @@ func (q *ProductQueries) AddProductWithVariants(ctx context.Context, product *mo
 }
 
 // insertProductImages inserts all product images within a transaction
-func (q *ProductQueries) insertProductImages(ctx context.Context, tx *sql.Tx, productID string, images []models.File) error {
+func (q *ProductQueries) insertProductImages(ctx context.Context, tx database.Tx, productID string, images []models.File) error {
 	for i, img := range images {
-		_, err := tx.ExecContext(ctx, `
+		_, err := tx.Exec(ctx, `
 			INSERT INTO product_image (id, product_id, name, ext, orig_name, position)
 			VALUES (?, ?, ?, ?, ?, ?)
 		`, img.ID, productID, img.Name, img.Ext, img.OrigName, i)
@@ -1073,9 +1072,9 @@ func (q *ProductQueries) insertProductImages(ctx context.Context, tx *sql.Tx, pr
 }
 
 // insertProductOptions inserts options and their values within a transaction
-func (q *ProductQueries) insertProductOptions(ctx context.Context, tx *sql.Tx, productID string, options []models.ProductOption) error {
+func (q *ProductQueries) insertProductOptions(ctx context.Context, tx database.Tx, productID string, options []models.ProductOption) error {
 	for _, option := range options {
-		_, err := tx.ExecContext(ctx, `
+		_, err := tx.Exec(ctx, `
 			INSERT INTO product_option (id, product_id, name, position)
 			VALUES (?, ?, ?, ?)
 		`, option.ID, productID, option.Name, option.Position)
@@ -1084,7 +1083,7 @@ func (q *ProductQueries) insertProductOptions(ctx context.Context, tx *sql.Tx, p
 		}
 
 		for _, value := range option.Values {
-			_, err = tx.ExecContext(ctx, `
+			_, err = tx.Exec(ctx, `
 				INSERT INTO product_option_value (id, option_id, value, position)
 				VALUES (?, ?, ?, ?)
 			`, value.ID, option.ID, value.Value, value.Position)
@@ -1097,7 +1096,7 @@ func (q *ProductQueries) insertProductOptions(ctx context.Context, tx *sql.Tx, p
 }
 
 // insertProductVariants inserts variants with relationships and images within a transaction
-func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, product *models.Product) error {
+func (q *ProductQueries) insertProductVariants(ctx context.Context, tx database.Tx, product *models.Product) error {
 	for _, variant := range product.Variants {
 		// Marshal option values to JSON
 		optionValuesJSON, err := json.Marshal(variant.OptionValues)
@@ -1105,7 +1104,7 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 			return fmt.Errorf("marshal option values: %w", err)
 		}
 
-		_, err = tx.ExecContext(ctx, `
+		_, err = tx.Exec(ctx, `
 			INSERT INTO product_variant (
 				id, product_id, sku, price_surcharge, quantity, option_values, active
 			) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1118,7 +1117,7 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 		for optionName, optionValue := range variant.OptionValues {
 			// Find the option value ID
 			var optionValueID string
-			err = tx.QueryRowContext(ctx, `
+			err = tx.QueryRow(ctx, `
 				SELECT pov.id
 				FROM product_option_value pov
 				JOIN product_option po ON pov.option_id = po.id
@@ -1128,7 +1127,7 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 				return fmt.Errorf("find option value ID for %s=%s: %w", optionName, optionValue, err)
 			}
 
-			_, err = tx.ExecContext(ctx, `
+			_, err = tx.Exec(ctx, `
 				INSERT INTO product_variant_option (variant_id, option_value_id)
 				VALUES (?, ?)
 			`, variant.ID, optionValueID)
@@ -1139,7 +1138,7 @@ func (q *ProductQueries) insertProductVariants(ctx context.Context, tx *sql.Tx, 
 
 		// Insert variant images
 		for i, img := range variant.Images {
-			_, err = tx.ExecContext(ctx, `
+			_, err = tx.Exec(ctx, `
 				INSERT INTO product_variant_image (id, variant_id, name, ext, orig_name, position)
 				VALUES (?, ?, ?, ?, ?, ?)
 			`, img.ID, variant.ID, img.Name, img.Ext, img.OrigName, i)
@@ -1167,7 +1166,7 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 	var digitalType sql.NullString
 	var sku sql.NullString
 
-	err := q.DB.QueryRowContext(ctx, query, productID).Scan(
+	err := q.DB.QueryRow(ctx, query, productID).Scan(
 		&product.ID,
 		&product.Name,
 		&product.Brief,
@@ -1201,7 +1200,7 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 	}
 
 	// 2. Get product images
-	imageRows, err := q.DB.QueryContext(ctx, `
+	imageRows, err := q.DB.Query(ctx, `
 		SELECT id, name, ext, orig_name
 		FROM product_image
 		WHERE product_id = ?
@@ -1235,7 +1234,7 @@ func (q *ProductQueries) GetProductWithVariants(ctx context.Context, productID s
 // loadProductOptions loads options, option values, and variants for a product
 func (q *ProductQueries) loadProductOptions(ctx context.Context, product *models.Product) (*models.Product, error) {
 	// Get options
-	optionRows, err := q.DB.QueryContext(ctx, `
+	optionRows, err := q.DB.Query(ctx, `
 		SELECT id, name, position
 		FROM product_option
 		WHERE product_id = ?
@@ -1275,7 +1274,7 @@ func (q *ProductQueries) loadProductOptions(ctx context.Context, product *models
 // loadOptionValues loads values for all product options
 func (q *ProductQueries) loadOptionValues(ctx context.Context, options *[]models.ProductOption) error {
 	for i := range *options {
-		valueRows, err := q.DB.QueryContext(ctx, `
+		valueRows, err := q.DB.Query(ctx, `
 			SELECT id, value, position
 			FROM product_option_value
 			WHERE option_id = ?
@@ -1304,7 +1303,7 @@ func (q *ProductQueries) loadOptionValues(ctx context.Context, options *[]models
 
 // loadProductVariants loads all variants with their option values and images
 func (q *ProductQueries) loadProductVariants(ctx context.Context, productID string) ([]models.ProductVariant, error) {
-	variantRows, err := q.DB.QueryContext(ctx, `
+	variantRows, err := q.DB.Query(ctx, `
 		SELECT id, sku, price_surcharge, quantity, active
 		FROM product_variant
 		WHERE product_id = ?
@@ -1331,7 +1330,7 @@ func (q *ProductQueries) loadProductVariants(ctx context.Context, productID stri
 		}
 
 		// Get variant option values
-		optValueRows, err := q.DB.QueryContext(ctx, `
+		optValueRows, err := q.DB.Query(ctx, `
 			SELECT po.name, pov.value
 			FROM product_variant_option pvo
 			JOIN product_option_value pov ON pvo.option_value_id = pov.id
@@ -1357,7 +1356,7 @@ func (q *ProductQueries) loadProductVariants(ctx context.Context, productID stri
 		optValueRows.Close()
 
 		// Get variant images
-		imgRows, err := q.DB.QueryContext(ctx, `
+		imgRows, err := q.DB.Query(ctx, `
 			SELECT id, name, ext, orig_name
 			FROM product_variant_image
 			WHERE variant_id = ?
@@ -1392,6 +1391,6 @@ func (q *ProductQueries) loadProductVariants(ctx context.Context, productID stri
 
 // GenerateUniqueSlug generates a unique URL-friendly slug from product name
 func (q *ProductQueries) GenerateUniqueSlug(ctx context.Context, name string, excludeProductID string) (string, error) {
-	service := slugify.NewSlugService(q.DB)
+	service := slugify.NewSlugService(q.DB.DB())
 	return service.Generate(ctx, name, excludeProductID)
 }

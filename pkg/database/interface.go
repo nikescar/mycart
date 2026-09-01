@@ -11,6 +11,7 @@ type Database interface {
 	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
+	Prepare(ctx context.Context, query string) (Stmt, error)
 
 	// Transaction support
 	Begin(ctx context.Context) (Tx, error)
@@ -28,8 +29,17 @@ type Tx interface {
 	Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row
+	Prepare(ctx context.Context, query string) (Stmt, error)
 	Commit() error
 	Rollback() error
+}
+
+// Stmt defines prepared statement interface
+type Stmt interface {
+	Exec(ctx context.Context, args ...interface{}) (sql.Result, error)
+	Query(ctx context.Context, args ...interface{}) (*sql.Rows, error)
+	QueryRow(ctx context.Context, args ...interface{}) *sql.Row
+	Close() error
 }
 
 // Config holds database configuration

@@ -11,18 +11,26 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/shurco/mycart/internal/models"
+	"github.com/shurco/mycart/internal/config"
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/security"
 )
 
 func main() {
 	// Initialize database
-	if err := queries.New(migrations.Embed()); err != nil {
+	dbConfig := config.LoadDatabaseConfig()
+	db, err := database.New(dbConfig)
+	if err != nil {
+		log.Fatalf("Failed to create database: %v", err)
+	}
+
+	if err := queries.New(db, migrations.Embed()); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	db := queries.DB()
+	base := queries.DB()
 
 	// Read CSV file
 	file, err := os.Open("data/sample_products.csv")
@@ -66,7 +74,7 @@ func main() {
 			Digital:     models.Digital{},
 		}
 
-		if _, err := db.AddProductWithVariants(ctx, product); err != nil {
+		if _, err := base.AddProductWithVariants(ctx, product); err != nil {
 			log.Printf("Failed to create product %s: %v", product.Name, err)
 			continue
 		}

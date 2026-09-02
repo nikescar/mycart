@@ -1,21 +1,34 @@
 package database
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/shurco/mycart/pkg/runtime"
+)
 
 // New creates a database instance based on the provided configuration.
-// If Type is empty, defaults to "sqlite".
-// If Type is "sqlite" and Path is empty, defaults to ":memory:".
+// If Type is empty, auto-detects based on runtime environment.
+// If Type is "sqlite" and Path is empty, uses runtime default or ":memory:".
 func New(config Config) (Database, error) {
-	// Default to sqlite if no type specified
+	// Auto-detect database type if not specified
 	if config.Type == "" {
-		config.Type = "sqlite"
+		if runtime.IsCloudflare() {
+			config.Type = "d1"
+		} else {
+			config.Type = "sqlite"
+		}
 	}
 
 	switch config.Type {
 	case "sqlite":
 		path := config.Path
 		if path == "" {
-			path = ":memory:"
+			dbPath := runtime.GetDatabasePath()
+			if dbPath != "" {
+				path = dbPath
+			} else {
+				path = ":memory:"
+			}
 		}
 		return NewSQLite(path)
 

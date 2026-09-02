@@ -1,21 +1,33 @@
 package storage
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+
+	"github.com/shurco/mycart/pkg/runtime"
+)
 
 // New creates a storage instance based on the provided configuration.
-// If Type is empty, defaults to "filesystem".
-// If Type is "filesystem" and BasePath is empty, defaults to "./uploads".
+// If Type is empty, auto-detects based on runtime environment.
+// If Type is "filesystem" and BasePath is empty, uses runtime default.
 func New(config Config) (Storage, error) {
-	// Default to filesystem if no type specified
+	// Auto-detect storage type if not specified
 	if config.Type == "" {
-		config.Type = "filesystem"
+		if runtime.IsCloudflare() {
+			config.Type = "r2"
+		} else {
+			config.Type = "filesystem"
+		}
 	}
 
 	switch config.Type {
 	case "filesystem":
 		basePath := config.BasePath
 		if basePath == "" {
-			basePath = "./uploads"
+			basePath = os.Getenv("STORAGE_BASE_PATH")
+			if basePath == "" {
+				basePath = "./lc_base/uploads"
+			}
 		}
 		return NewFilesystem(basePath)
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"github.com/shurco/mycart/internal/handlers/cloudflare"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/migrations"
@@ -69,6 +68,11 @@ func Install(c fiber.Ctx) error {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
+	// Validate Cloudflare configuration consistency
+	if (request.CFD1DatabaseID != "" || request.CFR2BucketName != "") && (request.CFAccountID == "" || request.CFAPIToken == "") {
+		return webutil.StatusBadRequest(c, "Cloudflare Account ID and API Token are required when using D1 or R2")
+	}
+
 	// Initialize Cloudflare D1 if credentials provided
 	if request.CFD1DatabaseID != "" && request.CFAccountID != "" {
 		if err := initializeCloudflareD1(c.Context(), request, log); err != nil {
@@ -80,6 +84,12 @@ func Install(c fiber.Ctx) error {
 	} else {
 		// Use existing local database
 		db := queries.DB()
+		if db == nil {
+			log.Error().Msg("Database not initialized")
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Database not initialized. Please restart the server or check database configuration.",
+			})
+		}
 		if err := db.Install(c.Context(), request); err != nil {
 			if errors.Is(err, queries.ErrAlreadyInstalled) {
 				return webutil.StatusBadRequest(c, err.Error())
@@ -107,7 +117,43 @@ func Install(c fiber.Ctx) error {
 }
 
 // initializeCloudflareD1 sets up D1 database with migrations and admin user
-func initializeCloudflareD1(ctx context.Context, install *models.Install, log *logging.Log) error {
+func initializeCloudflareD1(ctx context.Context, install *models.Install, log *logging.Log) (err error) {
+	fmt.Println("DEBUG: initializeCloudflareD1 called")
+
+	// Add panic recovery to catch and log the exact panic location
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("DEBUG: Panic recovered: %v\n", r)
+			if log != nil {
+				log.Error().Msgf("Panic in initializeCloudflareD1: %v", r)
+			}
+			err = fmt.Errorf("panic during D1 initialization: %v", r)
+		}
+	}()
+
+	fmt.Println("DEBUG: After defer setup")
+
+	if install == nil {
+		fmt.Println("DEBUG: install is nil!")
+		if log != nil {
+			log.Error().Msg("install parameter is nil")
+		}
+		return fmt.Errorf("install parameter is nil")
+	}
+
+	fmt.Println("DEBUG: install is not nil")
+
+	if log == nil {
+		fmt.Println("DEBUG: log is nil!")
+		return fmt.Errorf("log parameter is nil")
+	}
+
+	fmt.Println("DEBUG: log is not nil")
+	fmt.Printf("DEBUG: install.CFAccountID = %s\n", install.CFAccountID)
+
+	log.Info().Msg("Starting D1 initialization...")
+	log.Info().Msgf("D1 Config - AccountID: %s, DatabaseID: %s", install.CFAccountID, install.CFD1DatabaseID)
+
 	// Create D1 database connection
 	dbConfig := database.Config{
 		Type:       "d1",
@@ -116,18 +162,42 @@ func initializeCloudflareD1(ctx context.Context, install *models.Install, log *l
 		APIToken:   install.CFAPIToken,
 	}
 
+	log.Info().Msg("Creating D1 database connection...")
 	db, err := database.New(dbConfig)
 	if err != nil {
 		return fmt.Errorf("create D1 connection: %w", err)
 	}
+	if db == nil {
+		return fmt.Errorf("database.New returned nil database")
+	}
 
+	log.Info().Msg("Running migrations...")
 	// Initialize queries with D1 database and run migrations
 	if err := queries.New(db, migrations.Embed()); err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
+	log.Info().Msg("Creating admin user...")
 	// Create admin user in D1
-	if err := queries.DB().Install(ctx, install); err != nil {
+	dbInstance := queries.DB()
+	if dbInstance == nil {
+		return fmt.Errorf("database instance is nil after initialization")
+	}
+
+	// Add extra protection around Install call
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("DEBUG: Panic in Install method: %v\n", r)
+				err = fmt.Errorf("panic in Install method: %v", r)
+			}
+		}()
+		fmt.Println("DEBUG: About to call dbInstance.Install")
+		err = dbInstance.Install(ctx, install)
+		fmt.Println("DEBUG: dbInstance.Install completed without panic")
+	}()
+
+	if err != nil {
 		if errors.Is(err, queries.ErrAlreadyInstalled) {
 			return err
 		}

@@ -115,7 +115,7 @@
   async function loadD1Databases() {
     loadingD1 = true
     try {
-      const res = await apiGet('/api/install/cloudflare/d1/databases')
+      const res = await apiGet(`/api/install/cloudflare/d1/databases?account_id=${encodeURIComponent(cfAccountID)}&api_token=${encodeURIComponent(cfAPIToken)}`)
       d1Databases = res?.result || []
     } catch (error) {
       console.error('Failed to load D1 databases:', error)
@@ -127,8 +127,8 @@
   async function loadR2Buckets() {
     loadingR2 = true
     try {
-      const res = await apiGet('/api/install/cloudflare/r2/buckets')
-      r2Buckets = res?.result?.buckets || []
+      const res = await apiGet(`/api/install/cloudflare/r2/buckets?account_id=${encodeURIComponent(cfAccountID)}&api_token=${encodeURIComponent(cfAPIToken)}`)
+      r2Buckets = res?.result || []
     } catch (error) {
       console.error('Failed to load R2 buckets:', error)
     } finally {
@@ -139,13 +139,21 @@
   async function createD1Database() {
     if (!newD1Name.trim()) return
     try {
-      const res = await apiPost('/api/install/cloudflare/d1/databases', { name: newD1Name })
-      if (res?.result?.uuid) {
+      const res = await apiPost('/api/install/cloudflare/d1/databases', {
+        name: newD1Name,
+        account_id: cfAccountID,
+        api_token: cfAPIToken
+      })
+      if (res?.error) {
+        showMessage(res.error, 'connextError')
+      } else if (res?.result?.uuid) {
         cfD1DatabaseID = res.result.uuid
         await loadD1Databases()
         showCreateD1 = false
         newD1Name = ''
         showMessage('D1 database created', 'connextSuccess')
+      } else {
+        showMessage('Failed to create D1 database', 'connextError')
       }
     } catch (error) {
       showMessage('Failed to create D1 database', 'connextError')
@@ -155,13 +163,21 @@
   async function createR2Bucket() {
     if (!newR2Name.trim()) return
     try {
-      const res = await apiPost('/api/install/cloudflare/r2/buckets', { name: newR2Name })
-      if (res?.result?.name) {
+      const res = await apiPost('/api/install/cloudflare/r2/buckets', {
+        name: newR2Name,
+        account_id: cfAccountID,
+        api_token: cfAPIToken
+      })
+      if (res?.error) {
+        showMessage(res.error, 'connextError')
+      } else if (res?.result?.name) {
         cfR2BucketName = res.result.name
         await loadR2Buckets()
         showCreateR2 = false
         newR2Name = ''
         showMessage('R2 bucket created', 'connextSuccess')
+      } else {
+        showMessage('Failed to create R2 bucket', 'connextError')
       }
     } catch (error) {
       showMessage('Failed to create R2 bucket', 'connextError')

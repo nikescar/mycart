@@ -3,8 +3,9 @@ package routes
 import (
 	"github.com/gofiber/fiber/v3"
 
-	handlers "github.com/shurco/mycart/internal/handlers/private"
+	"github.com/shurco/mycart/internal/handlers/cloudflare"
 	"github.com/shurco/mycart/internal/handlers/maintenance"
+	handlers "github.com/shurco/mycart/internal/handlers/private"
 	"github.com/shurco/mycart/internal/middleware"
 )
 

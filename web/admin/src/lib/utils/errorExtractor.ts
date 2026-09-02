@@ -3,6 +3,11 @@
  * Centralizes error message extraction logic to eliminate duplication
  */
 export function extractErrorMessage(data: any): string {
+  // Check top-level error field first (used by Cloudflare handlers)
+  if (data.error && typeof data.error === 'string') {
+    return data.error
+  }
+
   if (data.result && typeof data.result === 'string' && data.result.trim()) {
     return data.result
   }

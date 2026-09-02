@@ -52,7 +52,9 @@ func (c *D1Client) ListDatabases() ([]D1Database, error) {
 	var result struct {
 		Result []D1Database `json:"result"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
 	return result.Result, nil
 }
 
@@ -70,9 +72,31 @@ func (c *D1Client) CreateDatabase(name string) (*D1Database, error) {
 	defer resp.Body.Close()
 
 	var result struct {
+		Success bool        `json:"success"`
+		Errors  []struct {
+			Code    int    `json:"code"`
+			Message string `json:"message"`
+		} `json:"errors"`
 		Result D1Database `json:"result"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode error: %w", err)
+	}
+
+	// Check Cloudflare API success field
+	if !result.Success {
+		if len(result.Errors) > 0 {
+			return nil, fmt.Errorf("API error: %s", result.Errors[0].Message)
+		}
+		return nil, fmt.Errorf("API error: unknown error")
+	}
+
+	// Also check HTTP status
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API error: status %d", resp.StatusCode)
+	}
+
 	return &result.Result, nil
 }
 

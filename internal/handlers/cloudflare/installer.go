@@ -9,8 +9,16 @@ import (
 
 // ListD1Databases returns available D1 databases
 func ListD1Databases(c fiber.Ctx) error {
-	accountID := os.Getenv("CF_ACCOUNT_ID")
-	apiToken := os.Getenv("CF_API_TOKEN")
+	// Accept credentials from query params (for installer) or env (for post-install)
+	accountID := c.Query("account_id")
+	apiToken := c.Query("api_token")
+
+	if accountID == "" {
+		accountID = os.Getenv("CF_ACCOUNT_ID")
+	}
+	if apiToken == "" {
+		apiToken = os.Getenv("CF_API_TOKEN")
+	}
 
 	if accountID == "" || apiToken == "" {
 		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
@@ -30,15 +38,25 @@ func ListD1Databases(c fiber.Ctx) error {
 // CreateD1Database creates a new D1 database
 func CreateD1Database(c fiber.Ctx) error {
 	var req struct {
-		Name string `json:"name"`
+		Name      string `json:"name"`
+		AccountID string `json:"account_id"`
+		APIToken  string `json:"api_token"`
 	}
 
 	if err := c.Bind().Body(&req); err != nil {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	accountID := os.Getenv("CF_ACCOUNT_ID")
-	apiToken := os.Getenv("CF_API_TOKEN")
+	// Use credentials from request body or fall back to env
+	accountID := req.AccountID
+	apiToken := req.APIToken
+
+	if accountID == "" {
+		accountID = os.Getenv("CF_ACCOUNT_ID")
+	}
+	if apiToken == "" {
+		apiToken = os.Getenv("CF_API_TOKEN")
+	}
 
 	if accountID == "" || apiToken == "" {
 		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
@@ -57,8 +75,16 @@ func CreateD1Database(c fiber.Ctx) error {
 
 // ListR2Buckets returns available R2 buckets
 func ListR2Buckets(c fiber.Ctx) error {
-	accountID := os.Getenv("CF_ACCOUNT_ID")
-	apiToken := os.Getenv("CF_API_TOKEN")
+	// Accept credentials from query params (for installer) or env (for post-install)
+	accountID := c.Query("account_id")
+	apiToken := c.Query("api_token")
+
+	if accountID == "" {
+		accountID = os.Getenv("CF_ACCOUNT_ID")
+	}
+	if apiToken == "" {
+		apiToken = os.Getenv("CF_API_TOKEN")
+	}
 
 	if accountID == "" || apiToken == "" {
 		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
@@ -78,15 +104,25 @@ func ListR2Buckets(c fiber.Ctx) error {
 // CreateR2Bucket creates a new R2 bucket
 func CreateR2Bucket(c fiber.Ctx) error {
 	var req struct {
-		Name string `json:"name"`
+		Name      string `json:"name"`
+		AccountID string `json:"account_id"`
+		APIToken  string `json:"api_token"`
 	}
 
 	if err := c.Bind().Body(&req); err != nil {
 		return webutil.StatusBadRequest(c, err.Error())
 	}
 
-	accountID := os.Getenv("CF_ACCOUNT_ID")
-	apiToken := os.Getenv("CF_API_TOKEN")
+	// Use credentials from request body or fall back to env
+	accountID := req.AccountID
+	apiToken := req.APIToken
+
+	if accountID == "" {
+		accountID = os.Getenv("CF_ACCOUNT_ID")
+	}
+	if apiToken == "" {
+		apiToken = os.Getenv("CF_API_TOKEN")
+	}
 
 	if accountID == "" || apiToken == "" {
 		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")

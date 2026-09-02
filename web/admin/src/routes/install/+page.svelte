@@ -20,6 +20,13 @@
   let passwordError = $state('')
   let domainError = $state('')
 
+  // Cloudflare-specific fields
+  let isCloudflare = $state(false)
+  let cfAccountID = $state('')
+  let cfAPIToken = $state('')
+  let cfD1DatabaseID = $state('')
+  let cfR2BucketName = $state('')
+
   let redirectTimer: ReturnType<typeof setTimeout> | undefined
   onDestroy(() => {
     if (redirectTimer !== undefined) clearTimeout(redirectTimer)

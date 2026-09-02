@@ -60,3 +60,13 @@ func TestDeleteR2Bucket_Stub(t *testing.T) {
 	// Error behavior depends on API response (404 vs 401)
 	_ = err // May be nil (404) or error (auth failure)
 }
+
+func TestExecuteD1SQL_Stub(t *testing.T) {
+	client := NewCloudflareClient("test-account", "test-token")
+
+	err := client.ExecuteD1SQL("test-db-id", "CREATE TABLE test (id INTEGER)")
+
+	// Expect error with invalid credentials
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "execute SQL")
+}

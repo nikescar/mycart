@@ -155,3 +155,32 @@ func (c *CloudflareClient) DeleteR2Bucket(name string) error {
 
 	return nil
 }
+
+// ExecuteD1SQL executes SQL statements on a D1 database
+func (c *CloudflareClient) ExecuteD1SQL(databaseID, sql string) error {
+	url := fmt.Sprintf("%s/accounts/%s/d1/database/%s/query", cloudflareAPIBase, c.accountID, databaseID)
+
+	body := map[string]string{"sql": sql}
+	jsonBody, _ := json.Marshal(body)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("execute SQL request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("execute SQL failed (HTTP %d): %s", resp.StatusCode, respBody)
+	}
+
+	return nil
+}

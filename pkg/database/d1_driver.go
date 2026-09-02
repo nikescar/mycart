@@ -236,12 +236,21 @@ func (r *d1DriverRows) Next(dest []driver.Value) error {
 	for i, val := range row {
 		// Convert JSON numbers to appropriate types
 		if num, ok := val.(json.Number); ok {
-			if strings.Contains(num.String(), ".") {
+			// Try int64 first (works for both regular ints and scientific notation ints)
+			if n, err := num.Int64(); err == nil {
+				dest[i] = n
+			} else {
+				// Fall back to float64
 				f, _ := num.Float64()
 				dest[i] = f
+			}
+		} else if f, ok := val.(float64); ok {
+			// D1 may return numbers directly as float64
+			// Check if it's actually an integer value
+			if f == float64(int64(f)) {
+				dest[i] = int64(f)
 			} else {
-				n, _ := num.Int64()
-				dest[i] = n
+				dest[i] = f
 			}
 		} else if str, ok := val.(string); ok {
 			// D1 returns booleans as strings "true"/"false" or "1"/"0"

@@ -1,18 +1,18 @@
 package cloudflare
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
+
+	"github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/option"
+	"github.com/cloudflare/cloudflare-go/v7/r2"
 )
 
 type R2Client struct {
-	accountID  string
-	apiToken   string
-	httpClient *http.Client
+	client    *cloudflare.Client
+	accountID string
 }
 
 type R2Bucket struct {
@@ -26,118 +26,66 @@ type R2Object struct {
 }
 
 func NewR2Client(accountID, apiToken string) *R2Client {
+	client := cloudflare.NewClient(
+		option.WithAPIToken(apiToken),
+	)
+
 	return &R2Client{
-		accountID:  accountID,
-		apiToken:   apiToken,
-		httpClient: &http.Client{Timeout: 5 * time.Minute},
+		client:    client,
+		accountID: accountID,
 	}
 }
 
 func (c *R2Client) ListBuckets() ([]R2Bucket, error) {
-	url := fmt.Sprintf("%s/accounts/%s/r2/buckets", cloudflareAPIBase, c.accountID)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	ctx := context.Background()
 
-	resp, err := c.httpClient.Do(req)
+	// List all R2 buckets for the account
+	params := r2.BucketListParams{
+		AccountID: cloudflare.F(c.accountID),
+	}
+
+	buckets, err := c.client.R2.Buckets.List(ctx, params)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: status %d, body: %s", resp.StatusCode, body)
+		return nil, fmt.Errorf("failed to list R2 buckets: %w", err)
 	}
 
-	// Try parsing as array first (newer API format)
-	var arrayResult struct {
-		Success bool       `json:"success"`
-		Result  []R2Bucket `json:"result"`
+	// Convert to our R2Bucket type
+	result := make([]R2Bucket, 0, len(buckets.Buckets))
+	for _, bucket := range buckets.Buckets {
+		createdAt, _ := time.Parse(time.RFC3339, bucket.CreationDate)
+		result = append(result, R2Bucket{
+			Name:      bucket.Name,
+			CreatedAt: createdAt,
+		})
 	}
 
-	body, _ := io.ReadAll(resp.Body)
-	if err := json.Unmarshal(body, &arrayResult); err == nil && arrayResult.Result != nil {
-		return arrayResult.Result, nil
-	}
-
-	// Fall back to object format (older API format)
-	var objectResult struct {
-		Success bool `json:"success"`
-		Result  struct {
-			Buckets []R2Bucket `json:"buckets"`
-		} `json:"result"`
-	}
-	if err := json.Unmarshal(body, &objectResult); err != nil {
-		return nil, fmt.Errorf("decode error: %w", err)
-	}
-	return objectResult.Result.Buckets, nil
+	return result, nil
 }
 
 func (c *R2Client) CreateBucket(name string) (*R2Bucket, error) {
-	url := fmt.Sprintf("%s/accounts/%s/r2/buckets", cloudflareAPIBase, c.accountID)
-	payload, _ := json.Marshal(map[string]string{"name": name})
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
-	req.Header.Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	resp, err := c.httpClient.Do(req)
+	// Create new R2 bucket
+	params := r2.BucketNewParams{
+		AccountID: cloudflare.F(c.accountID),
+		Name:      cloudflare.F(name),
+	}
+
+	bucket, err := c.client.R2.Buckets.New(ctx, params)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Success bool        `json:"success"`
-		Errors  []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-		Result R2Bucket `json:"result"`
+		return nil, fmt.Errorf("failed to create R2 bucket: %w", err)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode error: %w", err)
-	}
+	createdAt, _ := time.Parse(time.RFC3339, bucket.CreationDate)
 
-	// Check Cloudflare API success field
-	if !result.Success {
-		if len(result.Errors) > 0 {
-			return nil, fmt.Errorf("API error: %s", result.Errors[0].Message)
-		}
-		return nil, fmt.Errorf("API error: unknown error")
-	}
-
-	// Also check HTTP status
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: status %d", resp.StatusCode)
-	}
-
-	// Cloudflare R2 create bucket may return empty result, so we construct the bucket object
-	// The frontend will reload the list anyway to get the full details
-	if result.Result.Name == "" {
-		return &R2Bucket{
-			Name:      name,
-			CreatedAt: time.Now(),
-		}, nil
-	}
-
-	return &result.Result, nil
+	return &R2Bucket{
+		Name:      bucket.Name,
+		CreatedAt: createdAt,
+	}, nil
 }
 
 func (c *R2Client) ListObjects(bucketName string) ([]R2Object, error) {
-	url := fmt.Sprintf("%s/accounts/%s/r2/buckets/%s/objects", cloudflareAPIBase, c.accountID, bucketName)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Result []R2Object `json:"result"`
-	}
-	json.NewDecoder(resp.Body).Decode(&result)
-	return result.Result, nil
+	// Note: The cloudflare-go SDK may not have direct object listing support yet
+	// This would need to be implemented if the SDK adds it, or keep using HTTP API
+	return nil, fmt.Errorf("list objects not yet implemented with cloudflare-go SDK")
 }

@@ -1,21 +1,18 @@
 package cloudflare
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 	"time"
+
+	"github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/d1"
+	"github.com/cloudflare/cloudflare-go/v7/option"
 )
 
-var cloudflareAPIBase = "https://api.cloudflare.com/client/v4"
-
 type D1Client struct {
-	accountID  string
-	apiToken   string
-	httpClient *http.Client
+	client    *cloudflare.Client
+	accountID string
 }
 
 type D1Database struct {
@@ -25,110 +22,71 @@ type D1Database struct {
 }
 
 func NewD1Client(accountID, apiToken string) *D1Client {
+	client := cloudflare.NewClient(
+		option.WithAPIToken(apiToken),
+	)
+
 	return &D1Client{
-		accountID:  accountID,
-		apiToken:   apiToken,
-		httpClient: &http.Client{Timeout: 5 * time.Minute},
+		client:    client,
+		accountID: accountID,
 	}
 }
 
 func (c *D1Client) ListDatabases() ([]D1Database, error) {
-	url := fmt.Sprintf("%s/accounts/%s/d1/database", cloudflareAPIBase, c.accountID)
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
-	req.Header.Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	resp, err := c.httpClient.Do(req)
+	// List all D1 databases for the account
+	params := d1.DatabaseListParams{
+		AccountID: cloudflare.F(c.accountID),
+	}
+
+	response, err := c.client.D1.Database.List(ctx, params)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error: %s", body)
+		return nil, fmt.Errorf("failed to list D1 databases: %w", err)
 	}
 
-	var result struct {
-		Result []D1Database `json:"result"`
+	// Convert to our D1Database type
+	result := make([]D1Database, 0, len(response.Result))
+	for _, db := range response.Result {
+		result = append(result, D1Database{
+			ID:        db.UUID,
+			Name:      db.Name,
+			CreatedAt: db.CreatedAt,
+		})
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode error: %w", err)
-	}
-	return result.Result, nil
+
+	return result, nil
 }
 
 func (c *D1Client) CreateDatabase(name string) (*D1Database, error) {
-	url := fmt.Sprintf("%s/accounts/%s/d1/database", cloudflareAPIBase, c.accountID)
-	payload, _ := json.Marshal(map[string]string{"name": name})
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
-	req.Header.Set("Content-Type", "application/json")
+	ctx := context.Background()
 
-	resp, err := c.httpClient.Do(req)
+	// Create new D1 database
+	params := d1.DatabaseNewParams{
+		AccountID: cloudflare.F(c.accountID),
+		Name:      cloudflare.F(name),
+	}
+
+	db, err := c.client.D1.Database.New(ctx, params)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	var result struct {
-		Success bool        `json:"success"`
-		Errors  []struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"errors"`
-		Result D1Database `json:"result"`
+		return nil, fmt.Errorf("failed to create D1 database: %w", err)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode error: %w", err)
-	}
-
-	// Check Cloudflare API success field
-	if !result.Success {
-		if len(result.Errors) > 0 {
-			return nil, fmt.Errorf("API error: %s", result.Errors[0].Message)
-		}
-		return nil, fmt.Errorf("API error: unknown error")
-	}
-
-	// Also check HTTP status
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API error: status %d", resp.StatusCode)
-	}
-
-	return &result.Result, nil
+	return &D1Database{
+		ID:        db.UUID,
+		Name:      db.Name,
+		CreatedAt: db.CreatedAt,
+	}, nil
 }
 
 func (c *D1Client) ExportDatabase(databaseID, outputPath string) error {
-	url := fmt.Sprintf("%s/accounts/%s/d1/database/%s/export", cloudflareAPIBase, c.accountID, databaseID)
-	req, _ := http.NewRequest("POST", url, nil)
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	out, _ := os.Create(outputPath)
-	defer out.Close()
-	io.Copy(out, resp.Body)
-	return nil
+	// Note: The cloudflare-go SDK may not have direct export support yet
+	// This would need to be implemented if the SDK adds it, or keep using HTTP API
+	return fmt.Errorf("export not yet implemented with cloudflare-go SDK")
 }
 
 func (c *D1Client) ImportSQLite(databaseID, sqlitePath string) error {
-	sqlData, _ := os.ReadFile(sqlitePath)
-	url := fmt.Sprintf("%s/accounts/%s/d1/database/%s/query", cloudflareAPIBase, c.accountID, databaseID)
-	payload, _ := json.Marshal(map[string]string{"sql": string(sqlData)})
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(payload))
-	req.Header.Set("Authorization", "Bearer "+c.apiToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return nil
+	// Note: The cloudflare-go SDK may not have direct import support yet
+	// This would need to be implemented if the SDK adds it, or keep using HTTP API
+	return fmt.Errorf("import not yet implemented with cloudflare-go SDK")
 }

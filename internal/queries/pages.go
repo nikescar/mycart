@@ -30,7 +30,7 @@ func (q *PageQueries) IsPage(ctx context.Context, slug string) bool {
 func (q *PageQueries) ListPages(ctx context.Context, private bool, limit, offset int, idList ...string) ([]models.Page, int, error) {
 	pages := []models.Page{}
 
-	query := `SELECT id, name, slug, position, active, seo, strftime('%s', created), strftime('%s', updated) FROM page`
+	query := `SELECT id, name, slug, position, active, seo, strftime('%s', created), COALESCE(strftime('%s', updated), '') FROM page`
 	if !private {
 		query = query + ` WHERE active = 1`
 	}
@@ -135,7 +135,7 @@ func (q *PageQueries) PageByID(ctx context.Context, id string) (*models.Page, er
 
 	var content, seo sql.NullString
 	var updated sql.NullInt64
-	query := `SELECT id, name, slug, position, content, active, seo, strftime('%s', created), strftime('%s', updated) FROM page WHERE id = ?`
+	query := `SELECT id, name, slug, position, content, active, seo, strftime('%s', created), COALESCE(strftime('%s', updated), '') FROM page WHERE id = ?`
 	err := q.DB.QueryRow(ctx, query, id).Scan(&page.ID, &page.Name, &page.Slug, &page.Position, &content, &page.Active, &seo, &page.Created, &updated)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

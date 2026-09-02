@@ -193,7 +193,7 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 				product.seo,
 				json_group_array(json_object('id', pi.id, 'name', pi.name, 'ext', pi.ext)) as images,
 				strftime('%s', product.created),
-				strftime('%s', product.updated)
+				COALESCE(strftime('%s', product.updated), '')
 	`
 
 	// Добавляем вычисление digital_filled для приватных запросов

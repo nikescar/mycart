@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/gofiber/fiber/v3"
@@ -44,6 +45,9 @@ var (
 
 // NewApp initializes and starts the web application
 func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
+	// Load .env file if it exists (ignore error if file doesn't exist)
+	_ = godotenv.Load()
+
 	// Ensure local directories exist (only for local mode)
 	if !runtime.IsCloudflare() {
 		os.MkdirAll("./lc_base", 0755)

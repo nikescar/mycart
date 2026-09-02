@@ -69,7 +69,5 @@ func ApiPrivateRoutes(c *fiber.App) {
 	maintenanceGroup.Post("/backup", maintenance.BackupDatabase)
 	maintenanceGroup.Post("/restore", maintenance.RestoreDatabase)
 	maintenanceGroup.Post("/switch", maintenance.SwitchDatabase)
-	maintenanceGroup.Post("/wrangler/install", maintenance.InstallWrangler)
-	maintenanceGroup.Post("/wrangler/uninstall", maintenance.UninstallWrangler)
 	maintenanceGroup.Post("/enable-and-restart", maintenance.EnableMaintenanceAndRestart)
 }

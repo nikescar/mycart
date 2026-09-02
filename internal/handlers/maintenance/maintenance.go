@@ -1,10 +1,8 @@
 package maintenance
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -12,6 +10,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/shurco/mycart/internal/config"
+	"github.com/shurco/mycart/internal/handlers/cloudflare"
+	"github.com/shurco/mycart/pkg/runtime"
 )
 
 // GetStatus returns current maintenance mode status
@@ -19,10 +19,9 @@ func GetStatus(c fiber.Ctx) error {
 	dbConfig := config.LoadDatabaseConfig()
 	storageConfig := config.LoadStorageConfig()
 
-	wranglerInstalled := isWranglerInstalled()
-
 	return c.JSON(fiber.Map{
 		"maintenance_mode": isMaintenanceMode(),
+		"runtime":          map[string]bool{"cloudflare": runtime.IsCloudflare()},
 		"database": fiber.Map{
 			"type": dbConfig.Type,
 			"path": dbConfig.Path,
@@ -31,58 +30,15 @@ func GetStatus(c fiber.Ctx) error {
 			"type":      storageConfig.Type,
 			"base_path": storageConfig.BasePath,
 		},
-		"wrangler": fiber.Map{
-			"installed": wranglerInstalled,
-		},
-	})
-}
-
-// InstallWrangler installs wrangler via npm
-func InstallWrangler(c fiber.Ctx) error {
-	cmd := exec.Command("npm", "i", "-D", "wrangler@latest")
-	output, err := cmd.CombinedOutput()
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":  fmt.Sprintf("wrangler installation failed: %v", err),
-			"output": string(output),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Wrangler installed successfully",
-		"output":  string(output),
-	})
-}
-
-// UninstallWrangler uninstalls wrangler via npm
-func UninstallWrangler(c fiber.Ctx) error {
-	cmd := exec.Command("npm", "uninstall", "wrangler")
-	output, err := cmd.CombinedOutput()
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":  fmt.Sprintf("wrangler uninstall failed: %v", err),
-			"output": string(output),
-		})
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Wrangler uninstalled successfully",
-		"output":  string(output),
 	})
 }
 
 // Helper functions
 
 func isMaintenanceMode() bool {
-	_, err := os.Stat(".maintenance")
+	flagPath := runtime.GetMaintenanceFlagPath()
+	_, err := os.Stat(flagPath)
 	return err == nil
-}
-
-func isWranglerInstalled() bool {
-	cmd := exec.Command("npx", "wrangler", "--version")
-	return cmd.Run() == nil
 }
 
 // BackupDatabase creates a backup of the current database
@@ -205,7 +161,9 @@ func SwitchDatabase(c fiber.Ctx) error {
 
 // EnableMaintenanceAndRestart enables maintenance mode and triggers graceful restart
 func EnableMaintenanceAndRestart(c fiber.Ctx) error {
-	f, err := os.Create(".maintenance")
+	flagPath := runtime.GetMaintenanceFlagPath()
+
+	f, err := os.Create(flagPath)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": fmt.Sprintf("failed to enable maintenance mode: %v", err),
@@ -232,41 +190,25 @@ func copyFile(src, dst string) error {
 }
 
 func exportD1ToSQLite(databaseID, outputPath string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	accountID := os.Getenv("CF_ACCOUNT_ID")
+	apiToken := os.Getenv("CF_API_TOKEN")
 
-	cmd := exec.CommandContext(ctx, "npx", "wrangler", "d1", "export", databaseID, "--output", outputPath)
-	output, err := cmd.CombinedOutput()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("wrangler export timed out after 5 minutes")
+	if accountID == "" || apiToken == "" {
+		return fmt.Errorf("CF_ACCOUNT_ID and CF_API_TOKEN must be set for D1 operations")
 	}
 
-	if err != nil {
-		return fmt.Errorf("wrangler export failed: %w\nOutput: %s", err, output)
-	}
-
-	if _, err := os.Stat(outputPath); err != nil {
-		return fmt.Errorf("backup file not created: %w", err)
-	}
-
-	return nil
+	client := cloudflare.NewD1Client(accountID, apiToken)
+	return client.ExportDatabase(databaseID, outputPath)
 }
 
 func importSQLiteToD1(sqlitePath, databaseID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	accountID := os.Getenv("CF_ACCOUNT_ID")
+	apiToken := os.Getenv("CF_API_TOKEN")
 
-	cmd := exec.CommandContext(ctx, "npx", "wrangler", "d1", "execute", databaseID, "--file", sqlitePath)
-	output, err := cmd.CombinedOutput()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return fmt.Errorf("wrangler import timed out after 5 minutes")
+	if accountID == "" || apiToken == "" {
+		return fmt.Errorf("CF_ACCOUNT_ID and CF_API_TOKEN must be set for D1 operations")
 	}
 
-	if err != nil {
-		return fmt.Errorf("wrangler import failed: %w\nOutput: %s", err, output)
-	}
-
-	return nil
+	client := cloudflare.NewD1Client(accountID, apiToken)
+	return client.ImportSQLite(databaseID, sqlitePath)
 }

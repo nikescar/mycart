@@ -31,6 +31,7 @@ import (
 
 	app "github.com/shurco/mycart/internal"
 	"github.com/shurco/mycart/internal/models"
+	"github.com/shurco/mycart/pkg/runtime"
 	"github.com/shurco/mycart/pkg/update"
 
 	_ "github.com/shurco/mycart/docs/swagger"
@@ -201,14 +202,16 @@ func cmdMaintenanceEnable() *cobra.Command {
 		Use:   "enable",
 		Short: "Enable maintenance mode",
 		Run: func(_ *cobra.Command, _ []string) {
+			flagPath := runtime.GetMaintenanceFlagPath()
+
 			// Check if already in maintenance mode
-			if _, err := os.Stat(".maintenance"); err == nil {
+			if _, err := os.Stat(flagPath); err == nil {
 				fmt.Println("⚠️  Maintenance mode is already enabled")
 				return
 			}
 
-			// Create .maintenance file with timestamp
-			f, err := os.Create(".maintenance")
+			// Create maintenance flag file with timestamp
+			f, err := os.Create(flagPath)
 			if err != nil {
 				handleCommandError(fmt.Errorf("failed to enable maintenance mode: %w", err))
 				return
@@ -222,7 +225,7 @@ func cmdMaintenanceEnable() *cobra.Command {
 			}
 
 			fmt.Println("✓ Maintenance mode enabled")
-			fmt.Println("  Only localhost can access the application")
+			fmt.Println("  Only allowed IPs and authenticated admins can access")
 			fmt.Println("  Access maintenance panel at: http://localhost:8080/_/maintenance")
 
 			if restart {
@@ -242,7 +245,9 @@ func cmdMaintenanceDisable() *cobra.Command {
 		Use:   "disable",
 		Short: "Disable maintenance mode",
 		Run: func(_ *cobra.Command, _ []string) {
-			if err := os.Remove(".maintenance"); err != nil {
+			flagPath := runtime.GetMaintenanceFlagPath()
+
+			if err := os.Remove(flagPath); err != nil {
 				if os.IsNotExist(err) {
 					fmt.Println("Maintenance mode is not enabled")
 					return
@@ -263,10 +268,12 @@ func cmdMaintenanceStatus() *cobra.Command {
 		Use:   "status",
 		Short: "Check maintenance mode status",
 		Run: func(_ *cobra.Command, _ []string) {
-			_, err := os.Stat(".maintenance")
+			flagPath := runtime.GetMaintenanceFlagPath()
+
+			_, err := os.Stat(flagPath)
 			if err == nil {
 				fmt.Println("Status: MAINTENANCE MODE")
-				fmt.Println("  Access restricted to allowed IPs only")
+				fmt.Println("  Access restricted to allowed IPs and authenticated admins")
 			} else {
 				fmt.Println("Status: NORMAL")
 				fmt.Println("  Application is publicly accessible")

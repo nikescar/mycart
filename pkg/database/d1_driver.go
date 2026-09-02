@@ -1,0 +1,267 @@
+package database
+
+import (
+	"context"
+	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/d1"
+	"github.com/cloudflare/cloudflare-go/v7/option"
+)
+
+func init() {
+	sql.Register("d1", &d1Driver{})
+}
+
+// d1Driver implements database/sql/driver.Driver
+type d1Driver struct{}
+
+// Open returns a new connection to the D1 database
+// DSN format: "accountID/databaseID?api_token=xxx"
+func (d *d1Driver) Open(dsn string) (driver.Conn, error) {
+	parts := strings.Split(dsn, "?")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid DSN format, expected: accountID/databaseID?api_token=xxx")
+	}
+
+	ids := strings.Split(parts[0], "/")
+	if len(ids) != 2 {
+		return nil, fmt.Errorf("invalid DSN format, expected: accountID/databaseID")
+	}
+
+	// Parse query params
+	params := strings.Split(parts[1], "&")
+	var apiToken string
+	for _, param := range params {
+		if strings.HasPrefix(param, "api_token=") {
+			apiToken = strings.TrimPrefix(param, "api_token=")
+		}
+	}
+
+	if apiToken == "" {
+		return nil, fmt.Errorf("api_token required in DSN")
+	}
+
+	client := cloudflare.NewClient(option.WithAPIToken(apiToken))
+
+	return &d1Conn{
+		client:     client,
+		accountID:  ids[0],
+		databaseID: ids[1],
+	}, nil
+}
+
+// d1Conn implements driver.Conn
+type d1Conn struct {
+	client     *cloudflare.Client
+	accountID  string
+	databaseID string
+}
+
+func (c *d1Conn) Prepare(query string) (driver.Stmt, error) {
+	return &d1DriverStmt{
+		conn: c,
+		sql:  query,
+	}, nil
+}
+
+func (c *d1Conn) Close() error {
+	return nil
+}
+
+func (c *d1Conn) Begin() (driver.Tx, error) {
+	return &d1DriverTx{conn: c}, nil
+}
+
+// d1DriverStmt implements driver.Stmt
+type d1DriverStmt struct {
+	conn  *d1Conn
+	sql   string
+}
+
+func (s *d1DriverStmt) Close() error {
+	return nil
+}
+
+func (s *d1DriverStmt) NumInput() int {
+	return -1 // variable number of parameters
+}
+
+func (s *d1DriverStmt) Exec(args []driver.Value) (driver.Result, error) {
+	return s.execQuery(context.Background(), args)
+}
+
+func (s *d1DriverStmt) Query(args []driver.Value) (driver.Rows, error) {
+	return s.queryRows(context.Background(), args)
+}
+
+func (s *d1DriverStmt) execQuery(ctx context.Context, args []driver.Value) (driver.Result, error) {
+	// Convert args to strings
+	stringArgs := make([]string, len(args))
+	for i, arg := range args {
+		stringArgs[i] = fmt.Sprintf("%v", arg)
+	}
+
+	queryBody := d1.DatabaseQueryParamsBodyD1SingleQuery{
+		Sql:    cloudflare.F(s.sql),
+		Params: cloudflare.F(stringArgs),
+	}
+
+	params := d1.DatabaseQueryParams{
+		AccountID: cloudflare.F(s.conn.accountID),
+		Body:      queryBody,
+	}
+
+	result, err := s.conn.client.D1.Database.Query(ctx, s.conn.databaseID, params)
+	if err != nil {
+		return nil, fmt.Errorf("D1 query failed: %w", err)
+	}
+
+	rowsAffected := int64(0)
+	for _, item := range result.Result {
+		if meta := item.Meta; meta.ChangedDB || meta.RowsWritten > 0 {
+			rowsAffected += int64(meta.RowsWritten)
+		}
+	}
+
+	return &d1DriverResult{rowsAffected: rowsAffected}, nil
+}
+
+func (s *d1DriverStmt) queryRows(ctx context.Context, args []driver.Value) (driver.Rows, error) {
+	// Convert args to strings
+	stringArgs := make([]string, len(args))
+	for i, arg := range args {
+		stringArgs[i] = fmt.Sprintf("%v", arg)
+	}
+
+	queryBody := d1.DatabaseQueryParamsBodyD1SingleQuery{
+		Sql:    cloudflare.F(s.sql),
+		Params: cloudflare.F(stringArgs),
+	}
+
+	params := d1.DatabaseQueryParams{
+		AccountID: cloudflare.F(s.conn.accountID),
+		Body:      queryBody,
+	}
+
+	result, err := s.conn.client.D1.Database.Query(ctx, s.conn.databaseID, params)
+	if err != nil {
+		return nil, fmt.Errorf("D1 query failed: %w", err)
+	}
+
+	if len(result.Result) == 0 {
+		return &d1DriverRows{columns: []string{}, rows: [][]interface{}{}}, nil
+	}
+
+	// Get first result (D1 API returns array of results per query)
+	firstResult := result.Result[0]
+
+	// Extract columns and rows from D1 response
+	// D1 returns data as []map[string]interface{}
+	columns := make([]string, 0)
+	rows := make([][]interface{}, 0)
+
+	if len(firstResult.Results) > 0 {
+		// Convert interface{} to map
+		firstRow, ok := firstResult.Results[0].(map[string]interface{})
+		if ok {
+			// Get column names from first row
+			for col := range firstRow {
+				columns = append(columns, col)
+			}
+
+			// Extract all rows
+			for _, resultRow := range firstResult.Results {
+				rowMap, ok := resultRow.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				row := make([]interface{}, len(columns))
+				for j, col := range columns {
+					row[j] = rowMap[col]
+				}
+				rows = append(rows, row)
+			}
+		}
+	}
+
+	return &d1DriverRows{
+		columns: columns,
+		rows:    rows,
+		index:   0,
+	}, nil
+}
+
+// d1DriverResult implements driver.Result
+type d1DriverResult struct {
+	rowsAffected int64
+}
+
+func (r *d1DriverResult) LastInsertId() (int64, error) {
+	return 0, fmt.Errorf("D1 does not support LastInsertId")
+}
+
+func (r *d1DriverResult) RowsAffected() (int64, error) {
+	return r.rowsAffected, nil
+}
+
+// d1DriverRows implements driver.Rows
+type d1DriverRows struct {
+	columns []string
+	rows    [][]interface{}
+	index   int
+}
+
+func (r *d1DriverRows) Columns() []string {
+	return r.columns
+}
+
+func (r *d1DriverRows) Close() error {
+	return nil
+}
+
+func (r *d1DriverRows) Next(dest []driver.Value) error {
+	if r.index >= len(r.rows) {
+		return io.EOF
+	}
+
+	row := r.rows[r.index]
+	r.index++
+
+	for i, val := range row {
+		// Convert JSON numbers to appropriate types
+		if num, ok := val.(json.Number); ok {
+			if strings.Contains(num.String(), ".") {
+				f, _ := num.Float64()
+				dest[i] = f
+			} else {
+				n, _ := num.Int64()
+				dest[i] = n
+			}
+		} else {
+			dest[i] = val
+		}
+	}
+
+	return nil
+}
+
+// d1DriverTx implements driver.Tx
+type d1DriverTx struct {
+	conn *d1Conn
+}
+
+func (tx *d1DriverTx) Commit() error {
+	// D1 auto-commits
+	return nil
+}
+
+func (tx *d1DriverTx) Rollback() error {
+	// D1 doesn't support rollback
+	return nil
+}

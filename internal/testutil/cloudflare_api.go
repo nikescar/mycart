@@ -96,3 +96,62 @@ func (c *CloudflareClient) DeleteD1Database(databaseID string) error {
 
 	return nil
 }
+
+// CreateR2Bucket creates a new R2 bucket
+func (c *CloudflareClient) CreateR2Bucket(name string) error {
+	url := fmt.Sprintf("%s/accounts/%s/r2/buckets", cloudflareAPIBase, c.accountID)
+
+	body := map[string]string{"name": name}
+	jsonBody, _ := json.Marshal(body)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("create R2 bucket request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("create R2 bucket failed (HTTP %d): %s", resp.StatusCode, respBody)
+	}
+
+	return nil
+}
+
+// DeleteR2Bucket deletes an R2 bucket (idempotent - 404 is OK)
+func (c *CloudflareClient) DeleteR2Bucket(name string) error {
+	url := fmt.Sprintf("%s/accounts/%s/r2/buckets/%s", cloudflareAPIBase, c.accountID, name)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.apiToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("delete R2 bucket request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 404 is OK - resource already deleted (idempotent)
+	if resp.StatusCode == 404 {
+		return nil
+	}
+
+	if resp.StatusCode >= 400 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete R2 bucket failed (HTTP %d): %s", resp.StatusCode, respBody)
+	}
+
+	return nil
+}

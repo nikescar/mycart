@@ -40,3 +40,23 @@ func TestDeleteD1Database_Stub(t *testing.T) {
 	// Error behavior depends on API response (404 vs 401)
 	_ = err // May be nil (404) or error (auth failure)
 }
+
+func TestCreateR2Bucket_Stub(t *testing.T) {
+	client := NewCloudflareClient("test-account", "test-token")
+
+	err := client.CreateR2Bucket("test-bucket")
+
+	// Expect error with invalid credentials
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "create R2 bucket")
+}
+
+func TestDeleteR2Bucket_Stub(t *testing.T) {
+	client := NewCloudflareClient("test-account", "test-token")
+
+	err := client.DeleteR2Bucket("nonexistent-bucket")
+
+	// Method should exist (no compile error)
+	// Error behavior depends on API response (404 vs 401)
+	_ = err // May be nil (404) or error (auth failure)
+}

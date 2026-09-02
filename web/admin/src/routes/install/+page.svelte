@@ -6,7 +6,7 @@
   import Blank from '$lib/layouts/Blank.svelte'
   import FormInput from '$lib/components/form/Input.svelte'
   import FormButton from '$lib/components/form/Button.svelte'
-  import { apiPost } from '$lib/utils/api'
+  import { apiPost, apiGet } from '$lib/utils/api'
   import { showMessage } from '$lib/utils/message'
   import { translate } from '$lib/i18n'
 

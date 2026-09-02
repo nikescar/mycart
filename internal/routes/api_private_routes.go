@@ -70,4 +70,11 @@ func ApiPrivateRoutes(c *fiber.App) {
 	maintenanceGroup.Post("/restore", maintenance.RestoreDatabase)
 	maintenanceGroup.Post("/switch", maintenance.SwitchDatabase)
 	maintenanceGroup.Post("/enable-and-restart", maintenance.EnableMaintenanceAndRestart)
+
+	// cloudflare installer APIs (no auth required - used during install)
+	cfGroup := c.Group("/api/install/cloudflare")
+	cfGroup.Get("/d1/databases", cloudflare.ListD1Databases)
+	cfGroup.Post("/d1/databases", cloudflare.CreateD1Database)
+	cfGroup.Get("/r2/buckets", cloudflare.ListR2Buckets)
+	cfGroup.Post("/r2/buckets", cloudflare.CreateR2Bucket)
 }

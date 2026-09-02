@@ -5,48 +5,56 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/shurco/mycart/pkg/runtime"
 )
 
-const MaintenanceFile = ".maintenance"
-
 // MaintenanceMode middleware blocks requests when in maintenance mode
-// except for allowed IPs (localhost by default)
+// except for localhost IPs and authenticated admin users
 func MaintenanceMode() fiber.Handler {
 	return func(c fiber.Ctx) error {
-		// Check if maintenance file exists
 		if !isMaintenanceMode() {
 			return c.Next()
 		}
 
-		// Load allowed IPs on each request (for testing flexibility)
-		allowedIPs := loadAllowedIPs()
-
-		// Check if request IP is allowed
-		clientIP := c.IP()
-		if !isIPAllowed(clientIP, allowedIPs) {
-			// Return 503 Service Unavailable
-			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
-				"error":       "System is in maintenance mode",
-				"allowed_ips": allowedIPs,
-			})
+		if isAuthorized(c) {
+			return c.Next()
 		}
 
-		return c.Next()
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error":   "System is in maintenance mode",
+			"message": "Please try again later",
+		})
 	}
 }
 
 func isMaintenanceMode() bool {
-	_, err := os.Stat(MaintenanceFile)
-	return err == nil // file exists = maintenance mode ON
+	flagPath := runtime.GetMaintenanceFlagPath()
+	_, err := os.Stat(flagPath)
+	return err == nil
+}
+
+func isAuthorized(c fiber.Ctx) bool {
+	return isIPAllowed(c) || isAuthenticatedAdmin(c)
+}
+
+func isIPAllowed(c fiber.Ctx) bool {
+	allowedIPs := loadAllowedIPs()
+	clientIP := c.IP()
+
+	for _, allowed := range allowedIPs {
+		if allowed == clientIP {
+			return true
+		}
+	}
+	return false
 }
 
 func loadAllowedIPs() []string {
 	ips := os.Getenv("MAINTENANCE_ALLOWED_IPS")
 	if ips == "" {
-		return []string{"127.0.0.1", "::1"} // localhost only by default
+		return []string{"127.0.0.1", "::1"}
 	}
 
-	// Split and trim whitespace
 	parts := strings.Split(ips, ",")
 	result := make([]string, 0, len(parts))
 	for _, ip := range parts {
@@ -58,11 +66,17 @@ func loadAllowedIPs() []string {
 	return result
 }
 
-func isIPAllowed(clientIP string, allowedIPs []string) bool {
-	for _, allowed := range allowedIPs {
-		if allowed == clientIP {
-			return true
-		}
+func isAuthenticatedAdmin(c fiber.Ctx) bool {
+	user := c.Locals("user")
+	if user == nil {
+		return false
 	}
-	return false
+
+	userMap, ok := user.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	role, ok := userMap["role"].(string)
+	return ok && role == "admin"
 }

@@ -67,6 +67,10 @@ func (s *sqliteDB) DB() *sql.DB {
 	return s.db
 }
 
+func (s *sqliteDB) Type() string {
+	return "sqlite"
+}
+
 // sqliteTx implements Tx interface
 type sqliteTx struct {
 	tx *sql.Tx

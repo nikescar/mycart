@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"os"
 	"slices"
 	"time"
 
@@ -260,4 +261,39 @@ func TestLetter(c fiber.Ctx) error {
 	}
 
 	return webutil.Response(c, fiber.StatusOK, "Test letter", "Message sent to your mailbox")
+}
+
+type systemInfo struct {
+	DatabaseType string `json:"database_type"`
+	DatabaseID   string `json:"database_id,omitempty"`
+}
+
+// SystemInfo returns information about the running system including database type.
+//
+// @Summary      Get system info
+// @Description  Get system information including database type (sqlite or d1)
+// @Tags         Settings
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200 {object} webutil.HTTPResponse{result=systemInfo} "System info"
+// @Failure      500 {object} webutil.HTTPResponse "Internal server error"
+// @Router       /api/_/system [get]
+func SystemInfo(c fiber.Ctx) error {
+	db := queries.DB()
+	if db == nil {
+		return webutil.StatusInternalServerError(c)
+	}
+
+	info := systemInfo{
+		DatabaseType: db.Type(),
+	}
+
+	// Add D1 database ID if using Cloudflare D1
+	if info.DatabaseType == "d1" {
+		if dbID := os.Getenv("CF_D1_DATABASE_ID"); dbID != "" {
+			info.DatabaseID = dbID
+		}
+	}
+
+	return webutil.Response(c, fiber.StatusOK, "System info", info)
 }

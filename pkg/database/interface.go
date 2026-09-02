@@ -22,6 +22,9 @@ type Database interface {
 
 	// Migration support - returns underlying *sql.DB for goose
 	DB() *sql.DB
+
+	// Type returns the database type ("sqlite" or "d1")
+	Type() string
 }
 
 // Tx defines transaction interface

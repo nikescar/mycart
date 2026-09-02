@@ -78,6 +78,10 @@ func (d *d1DB) DB() *sql.DB {
 	return d.db
 }
 
+func (d *d1DB) Type() string {
+	return "d1"
+}
+
 // d1Tx implements Tx interface
 type d1Tx struct {
 	tx *sql.Tx

@@ -15,6 +15,7 @@ func ApiPrivateRoutes(c *fiber.App) {
 	c.Post("/api/install", middleware.AuthLimiter(), handlers.Install)
 
 	c.Get("/api/_/version", middleware.JWTProtected(), handlers.Version)
+	c.Get("/api/_/system", middleware.JWTProtected(), handlers.SystemInfo)
 
 	sign := c.Group("/api/sign")
 	sign.Post("/in", middleware.AuthLimiter(), handlers.SignIn)

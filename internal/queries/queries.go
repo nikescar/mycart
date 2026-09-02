@@ -69,6 +69,14 @@ func DB() *Base {
 	return db
 }
 
+// Type returns the database type ("sqlite" or "d1")
+func (b *Base) Type() string {
+	if b == nil || b.SettingQueries.DB == nil {
+		return "unknown"
+	}
+	return b.SettingQueries.DB.Type()
+}
+
 // sqliteDBWrapper wraps *sql.DB to implement database.Database interface
 // This is used by NewFromDB for test compatibility
 type sqliteDBWrapper struct {
@@ -113,6 +121,10 @@ func (w *sqliteDBWrapper) Close() error {
 
 func (w *sqliteDBWrapper) DB() *sql.DB {
 	return w.db
+}
+
+func (w *sqliteDBWrapper) Type() string {
+	return "sqlite"
 }
 
 // sqliteTxWrapper wraps *sql.Tx to implement database.Tx interface

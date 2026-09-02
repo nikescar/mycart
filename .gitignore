@@ -93,3 +93,4 @@ docs/.vitepress/cache/
 
 # Generated from root README.md
 docs/readme.md
+.env

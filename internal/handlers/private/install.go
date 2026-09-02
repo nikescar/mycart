@@ -92,10 +92,12 @@ func Install(c fiber.Ctx) error {
 		}
 		if err := db.Install(c.Context(), request); err != nil {
 			if errors.Is(err, queries.ErrAlreadyInstalled) {
-				return webutil.StatusBadRequest(c, err.Error())
+				// Already installed is fine - just continue
+				log.Info().Msg("Database already initialized, skipping")
+			} else {
+				log.ErrorStack(err)
+				return webutil.StatusInternalServerError(c)
 			}
-			log.ErrorStack(err)
-			return webutil.StatusInternalServerError(c)
 		}
 	}
 
@@ -207,7 +209,9 @@ func initializeCloudflareD1(ctx context.Context, install *models.Install, log *l
 
 	if err != nil {
 		if errors.Is(err, queries.ErrAlreadyInstalled) {
-			return err
+			// Already installed is fine - just continue
+			log.Info().Msg("D1 database already initialized, skipping")
+			return nil
 		}
 		return fmt.Errorf("create admin user: %w", err)
 	}

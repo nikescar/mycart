@@ -504,3 +504,26 @@ If you want to say **thank you** and/or support the active development of `mycar
 4. Support the project by donating a [cup of coffee](https://github.com/sponsors/shurco).
 
 You can learn more about how you can contribute to this project in the [contribution guide](https://github.com/shurco/mycart/blob/master/.github/CONTRIBUTING.md).
+
+## 🧪 Testing
+
+### Quick Tests (In-Memory SQLite)
+
+```bash
+make test
+```
+
+### D1/R2 Integration Tests
+
+Test against real Cloudflare D1 and R2 services:
+
+```bash
+# 1. Setup (first time only)
+cp .env.test.example .env.test
+# Edit .env.test with your Cloudflare credentials
+
+# 2. Run integration tests
+make test-cloudflare
+```
+
+See design and implementation docs in `docs/superpowers/` for details.

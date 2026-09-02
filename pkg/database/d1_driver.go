@@ -243,6 +243,17 @@ func (r *d1DriverRows) Next(dest []driver.Value) error {
 				n, _ := num.Int64()
 				dest[i] = n
 			}
+		} else if str, ok := val.(string); ok {
+			// D1 returns booleans as strings "true"/"false" or "1"/"0"
+			// Convert to int64 for database/sql compatibility
+			switch str {
+			case "true", "1":
+				dest[i] = int64(1)
+			case "false", "0":
+				dest[i] = int64(0)
+			default:
+				dest[i] = val
+			}
 		} else {
 			dest[i] = val
 		}

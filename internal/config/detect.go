@@ -46,7 +46,7 @@ func LoadDatabaseConfig() DatabaseConfig {
 	// Local SQLite configuration
 	path := os.Getenv("DB_PATH")
 	if path == "" {
-		path = "./lc_base/lc.db"
+		path = "./lc_base/data.db"
 	}
 
 	return DatabaseConfig{

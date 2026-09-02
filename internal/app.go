@@ -25,6 +25,7 @@ import (
 	"github.com/shurco/mycart/migrations"
 	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/logging"
+	"github.com/shurco/mycart/pkg/runtime"
 	"github.com/shurco/mycart/pkg/storage"
 	"github.com/shurco/mycart/pkg/webutil"
 )
@@ -43,6 +44,13 @@ var (
 
 // NewApp initializes and starts the web application
 func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
+	// Ensure local directories exist (only for local mode)
+	if !runtime.IsCloudflare() {
+		os.MkdirAll("./lc_base", 0755)
+		os.MkdirAll("./lc_base/uploads", 0755)
+		os.MkdirAll("./lc_base/backups", 0755)
+	}
+
 	DevMode = appDev
 	log = logging.New()
 

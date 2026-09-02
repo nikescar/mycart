@@ -72,7 +72,17 @@
     }
 
     try {
-      const res = await apiPost(`/api/install`, { email, password, domain })
+      const payload: any = { email, password, domain }
+
+      // Include Cloudflare config if in Cloudflare mode
+      if (isCloudflare) {
+        payload.cf_account_id = cfAccountID
+        payload.cf_api_token = cfAPIToken
+        payload.cf_d1_database_id = cfD1DatabaseID
+        payload.cf_r2_bucket_name = cfR2BucketName
+      }
+
+      const res = await apiPost(`/api/install`, payload)
       if (res?.success) {
         showMessage(t('install.installedSuccessfully'), 'connextSuccess')
         // Redirect to signin page after successful installation
@@ -87,11 +97,19 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
     // Set default domain from current location if in browser
     if (browser) {
       const url = new URL(window.location.href)
       domain = url.origin.replace(/^https?:\/\//, '')
+
+      // Check if running in Cloudflare mode
+      try {
+        const status = await apiGet('/_/api/maintenance/status')
+        isCloudflare = status?.runtime?.cloudflare || false
+      } catch (error) {
+        console.error('Failed to check runtime environment:', error)
+      }
     }
   })
 </script>
@@ -121,6 +139,49 @@
         bind:value={domain}
         placeholder="example.com"
       />
+
+      {#if isCloudflare}
+        <div class="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">☁️</span>
+            <h3 class="font-semibold text-blue-900">Cloudflare Configuration</h3>
+          </div>
+
+          <FormInput
+            id="cf_account_id"
+            type="text"
+            title="Cloudflare Account ID"
+            placeholder="your-account-id"
+            bind:value={cfAccountID}
+          />
+          <FormInput
+            id="cf_api_token"
+            type="password"
+            title="Cloudflare API Token"
+            placeholder="your-api-token"
+            bind:value={cfAPIToken}
+          />
+          <FormInput
+            id="cf_d1_database_id"
+            type="text"
+            title="D1 Database ID"
+            placeholder="Select or create D1 database"
+            bind:value={cfD1DatabaseID}
+          />
+          <FormInput
+            id="cf_r2_bucket_name"
+            type="text"
+            title="R2 Bucket Name"
+            placeholder="Select or create R2 bucket"
+            bind:value={cfR2BucketName}
+          />
+
+          <p class="text-sm text-blue-700">
+            💡 These values will be used to configure Cloudflare D1 database and R2 storage.
+          </p>
+        </div>
+      {/if}
+
       <FormButton type="submit" name={t('install.installButton')} color="green" ico="arrow-right" />
     </form>
   </div>

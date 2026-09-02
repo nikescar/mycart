@@ -29,8 +29,15 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 		return nil, err
 	}
 
+	currencyValue := "USD" // default currency
+	if currencySetting, ok := currency["currency"]; ok && currencySetting.Value != nil {
+		if val, ok := currencySetting.Value.(string); ok {
+			currencyValue = val
+		}
+	}
+
 	products := &models.Products{
-		Currency: currency["currency"].Value.(string),
+		Currency: currencyValue,
 	}
 
 	// Build variants subquery based on private mode

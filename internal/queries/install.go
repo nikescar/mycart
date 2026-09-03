@@ -38,12 +38,6 @@ func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 		return ErrAlreadyInstalled
 	}
 
-	tx, err := q.DB.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
 	passwordHash := security.GeneratePassword(i.Password)
 	jwt_secret, err := security.NewToken(passwordHash)
 	if err != nil {
@@ -58,17 +52,14 @@ func (q *InstallQueries) Install(ctx context.Context, i *models.Install) error {
 		"jwt_secret": jwt_secret,
 	}
 
-	stmt, err := tx.Prepare(ctx, `UPDATE setting SET value = ? WHERE key = ?`)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = stmt.Close() }()
-
+	// D1 doesn't support transactions, so execute updates directly
+	// For SQLite, we could use transactions but for consistency we'll use direct updates
 	for key, value := range settings {
-		if _, err := stmt.Exec(ctx, value, key); err != nil {
+		_, err := q.DB.Exec(ctx, `UPDATE setting SET value = ? WHERE key = ?`, value, key)
+		if err != nil {
 			return err
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }

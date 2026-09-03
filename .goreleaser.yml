@@ -2,6 +2,11 @@ version: 2
 
 before:
   hooks:
+    # docs/swagger/docs.go is gitignored; generate it so the blank import in
+    # cmd/main.go resolves locally. Without this, `go mod tidy` looks the
+    # package up on the module proxy and fails with "no matching versions".
+    - go install github.com/swaggo/swag/cmd/swag@v1.16.6
+    - sh -c '"$(go env GOPATH)/bin/swag" init -g cmd/main.go --output docs/swagger --parseDependency --parseInternal'
     - go mod tidy
     - go mod download
     - sh -c "cd web/admin && bun install --force"

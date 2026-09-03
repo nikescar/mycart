@@ -140,15 +140,17 @@ func (q *CartQueries) Carts(ctx context.Context, limit, offset int) ([]*models.C
 
 // Cart retrieves a cart from the database using the provided cartId.
 func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, error) {
+	// Select columns in the order they exist in the table after migrations
+	// (after 'name' column was dropped in 20231114104637_litepay.sql)
 	query := `
-	SELECT 
-    id, 
-    email, 
-    cart,
+	SELECT
+    id,
+    email,
     amount_total,
     currency,
     payment_id,
     payment_status,
+    cart,
     payment_system,
     strftime('%s', created),
     COALESCE(strftime('%s', updated), '0')
@@ -164,11 +166,11 @@ func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, er
 		Scan(
 			&cart.ID,
 			&email,
-			&cartJSON,
 			&cart.AmountTotal,
 			&cart.Currency,
 			&paymentID,
 			&cart.PaymentStatus,
+			&cartJSON,
 			&cart.PaymentSystem,
 			&created,
 			&updated,

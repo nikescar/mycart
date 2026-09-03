@@ -102,7 +102,9 @@ dockers_v2:
     sbom: true
     flags:
       - '--pull'
-      - '--provenance'
+      # buildx treats --provenance as a string option; without '=', it
+      # consumes the context path and fails with "requires 1 argument".
+      - '--provenance=true'
     labels:
       'io.artifacthub.package.readme-url': 'https://raw.githubusercontent.com/shurco/mycart/main/README.md'
       'io.artifacthub.package.maintainers': '[{"name":"Dmitry Shurco"}]'

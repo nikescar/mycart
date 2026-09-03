@@ -56,7 +56,7 @@ func InstallStatus(c fiber.Ctx) error {
 // DetectDeployment reports the current deployment configuration from .env
 //
 // @Summary      Detect deployment type
-// @Description  Returns deployment type (credentials not exposed for security)
+// @Description  Returns deployment type and credentials only if not yet installed
 // @Tags         Install
 // @Produce      json
 // @Success      200 {object} webutil.HTTPResponse{result=deploymentType}
@@ -74,20 +74,26 @@ func DetectDeployment(c fiber.Ctx) error {
 
 	if accountID != "" && apiToken != "" {
 		detection.Type = "cloudflare"
-		// DO NOT expose credentials in API response for security
-		// detection.CFAccountID = accountID
-		// detection.CFAPIToken = apiToken
-		// detection.CFD1DatabaseID = d1DatabaseID
-		// detection.CFR2BucketName = os.Getenv("CLOUDFLARE_R2_BUCKET_NAME")
 
 		// If D1 database ID is configured, check if it's already installed
+		var isInstalled bool
 		if d1DatabaseID != "" {
-			isInstalled, err := checkD1Installation(accountID, apiToken, d1DatabaseID)
+			var err error
+			isInstalled, err = checkD1Installation(accountID, apiToken, d1DatabaseID)
 			if err != nil {
 				// Log error but don't block - user can still install
 				log.Warn().Err(err).Msg("Failed to check D1 installation status")
 			}
 			detection.Installed = isInstalled
+		}
+
+		// Only expose credentials if NOT yet installed (for pre-filling install form)
+		// If already installed, backend middleware will redirect before this is called
+		if !isInstalled {
+			detection.CFAccountID = accountID
+			detection.CFAPIToken = apiToken
+			detection.CFD1DatabaseID = d1DatabaseID
+			detection.CFR2BucketName = os.Getenv("CLOUDFLARE_R2_BUCKET_NAME")
 		}
 	}
 

@@ -196,9 +196,23 @@
       const url = new URL(window.location.href)
       domain = url.origin.replace(/^https?:\/\//, '')
 
-      // Cloudflare mode detection removed - maintenance API no longer exists
-      // User can manually enable Cloudflare mode if needed
-      isCloudflare = false
+      // Detect deployment type from backend
+      // Backend only exposes credentials if NOT yet installed (safe to pre-fill)
+      try {
+        const res = await apiGet('/api/install/detect')
+        if (res?.result?.type === 'cloudflare') {
+          isCloudflare = true
+          // Pre-fill credentials from .env if provided (only sent when not installed)
+          cfAccountID = res.result.cf_account_id || ''
+          cfAPIToken = res.result.cf_api_token || ''
+          cfD1DatabaseID = res.result.cf_d1_database_id || ''
+          cfR2BucketName = res.result.cf_r2_bucket_name || ''
+        }
+      } catch (error) {
+        console.error('Failed to detect deployment type:', error)
+        // Fall back to local mode
+        isCloudflare = false
+      }
     }
   })
 </script>

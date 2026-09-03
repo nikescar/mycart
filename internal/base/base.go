@@ -176,10 +176,11 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 // parseSQLStatements splits SQL content into individual statements
 // Handles goose directives and comments
 // Only parses the UP section, stops at DOWN section
+// For D1: Always splits by semicolons (ignores StatementBegin/End) because
+// D1 cannot execute multiple SQL statements in a single API call
 func parseSQLStatements(sql string) []string {
 	var statements []string
 	var current strings.Builder
-	inGooseBlock := false
 	inUpSection := false
 
 	lines := strings.Split(sql, "\n")
@@ -194,11 +195,8 @@ func parseSQLStatements(sql string) []string {
 			} else if strings.Contains(trimmed, "Down") {
 				// Stop processing when we hit the DOWN section
 				break
-			} else if strings.Contains(trimmed, "StatementBegin") {
-				inGooseBlock = true
-				continue
-			} else if strings.Contains(trimmed, "StatementEnd") {
-				inGooseBlock = false
+			} else if strings.Contains(trimmed, "StatementBegin") || strings.Contains(trimmed, "StatementEnd") {
+				// Ignore StatementBegin/End for D1 - D1 requires individual statements
 				continue
 			}
 		}
@@ -209,15 +207,15 @@ func parseSQLStatements(sql string) []string {
 		}
 
 		// Skip comments
-		if strings.HasPrefix(trimmed, "--") && !inGooseBlock {
+		if strings.HasPrefix(trimmed, "--") {
 			continue
 		}
 
 		current.WriteString(line)
 		current.WriteString("\n")
 
-		// Check for statement end (semicolon) - but only if not in goose block
-		if !inGooseBlock && strings.HasSuffix(trimmed, ";") {
+		// Always split by semicolons for D1 (ignore goose StatementBegin/End)
+		if strings.HasSuffix(trimmed, ";") {
 			stmt := current.String()
 			if strings.TrimSpace(stmt) != "" {
 				statements = append(statements, stmt)
@@ -226,7 +224,7 @@ func parseSQLStatements(sql string) []string {
 		}
 	}
 
-	// Add any remaining SQL (for goose StatementBegin/End blocks)
+	// Add any remaining SQL
 	if stmt := current.String(); strings.TrimSpace(stmt) != "" {
 		statements = append(statements, stmt)
 	}

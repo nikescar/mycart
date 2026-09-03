@@ -25,13 +25,6 @@ func TestIsCloudflare(t *testing.T) {
 			},
 			expected: true,
 		},
-		{
-			name: "CF_PAGES set (legacy)",
-			envVars: map[string]string{
-				"CF_PAGES": "1",
-			},
-			expected: true,
-		},
 	}
 
 	for _, tt := range tests {

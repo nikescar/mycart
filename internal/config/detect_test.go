@@ -19,31 +19,16 @@ func TestIsCloudflare(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "CF_WORKER set",
+			name: "CLOUDFLARE_APPLICATION_ID set",
 			envVars: map[string]string{
-				"CF_WORKER": "true",
+				"CLOUDFLARE_APPLICATION_ID": "true",
 			},
 			expected: true,
 		},
 		{
-			name: "CF_PAGES set",
+			name: "CF_PAGES set (legacy)",
 			envVars: map[string]string{
 				"CF_PAGES": "1",
-			},
-			expected: true,
-		},
-		{
-			name: "D1_DATABASE set",
-			envVars: map[string]string{
-				"D1_DATABASE": "my-db",
-			},
-			expected: true,
-		},
-		{
-			name: "multiple cloudflare vars",
-			envVars: map[string]string{
-				"CF_WORKER":   "true",
-				"D1_DATABASE": "my-db",
 			},
 			expected: true,
 		},
@@ -93,10 +78,10 @@ func TestLoadDatabaseConfig(t *testing.T) {
 		{
 			name: "cloudflare mode - d1 config",
 			envVars: map[string]string{
-				"CF_WORKER":      "true",
-				"D1_ACCOUNT_ID":  "test-account",
-				"D1_DATABASE_ID": "test-db-id",
-				"D1_API_TOKEN":   "test-token",
+				"CLOUDFLARE_APPLICATION_ID":      "true",
+				"CLOUDFLARE_ACCOUNT_ID":  "test-account",
+				"CLOUDFLARE_D1_DATABASE_ID": "test-db-id",
+				"CLOUDFLARE_API_TOKEN":   "test-token",
 			},
 			expectedType: "d1",
 			checkFields: func(t *testing.T, cfg DatabaseConfig) {
@@ -154,11 +139,11 @@ func TestLoadStorageConfig(t *testing.T) {
 		{
 			name: "cloudflare mode - r2 config",
 			envVars: map[string]string{
-				"CF_WORKER":            "true",
-				"R2_ACCOUNT_ID":        "test-account",
-				"R2_ACCESS_KEY_ID":     "test-key",
-				"R2_SECRET_ACCESS_KEY": "test-secret",
-				"R2_BUCKET_NAME":       "test-bucket",
+				"CLOUDFLARE_APPLICATION_ID":            "true",
+				"CLOUDFLARE_ACCOUNT_ID":        "test-account",
+				"CLOUDFLARE_R2_ACCESS_KEY_ID":     "test-key",
+				"CLOUDFLARE_R2_SECRET_ACCESS_KEY": "test-secret",
+				"CLOUDFLARE_R2_BUCKET_NAME":       "test-bucket",
 			},
 			expectedType: "r2",
 			checkFields: func(t *testing.T, cfg StorageConfig) {

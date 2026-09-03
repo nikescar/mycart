@@ -16,14 +16,12 @@ type (
 // IsCloudflare detects if running in Cloudflare environment
 // by checking for Cloudflare-specific environment variables
 func IsCloudflare() bool {
-	// Check for common Cloudflare Worker/Pages environment variables
-	if os.Getenv("CF_WORKER") != "" {
+	// Check for Cloudflare environment indicator
+	if os.Getenv("CLOUDFLARE_APPLICATION_ID") != "" {
 		return true
 	}
+	// Legacy detection (deprecated, use CLOUDFLARE_APPLICATION_ID)
 	if os.Getenv("CF_PAGES") != "" {
-		return true
-	}
-	if os.Getenv("D1_DATABASE") != "" {
 		return true
 	}
 	return false
@@ -37,9 +35,9 @@ func LoadDatabaseConfig() DatabaseConfig {
 		// Cloudflare D1 configuration
 		return DatabaseConfig{
 			Type:       "d1",
-			AccountID:  os.Getenv("D1_ACCOUNT_ID"),
-			DatabaseID: os.Getenv("D1_DATABASE_ID"),
-			APIToken:   os.Getenv("D1_API_TOKEN"),
+			AccountID:  os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+			DatabaseID: os.Getenv("CLOUDFLARE_D1_DATABASE_ID"),
+			APIToken:   os.Getenv("CLOUDFLARE_API_TOKEN"),
 		}
 	}
 
@@ -63,10 +61,10 @@ func LoadStorageConfig() StorageConfig {
 		// Cloudflare R2 configuration
 		return StorageConfig{
 			Type:            "r2",
-			AccountID:       os.Getenv("R2_ACCOUNT_ID"),
-			AccessKeyID:     os.Getenv("R2_ACCESS_KEY_ID"),
-			SecretAccessKey: os.Getenv("R2_SECRET_ACCESS_KEY"),
-			BucketName:      os.Getenv("R2_BUCKET_NAME"),
+			AccountID:       os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+			AccessKeyID:     os.Getenv("CLOUDFLARE_R2_ACCESS_KEY_ID"),
+			SecretAccessKey: os.Getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
+			BucketName:      os.Getenv("CLOUDFLARE_R2_BUCKET_NAME"),
 		}
 	}
 

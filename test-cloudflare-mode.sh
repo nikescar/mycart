@@ -5,10 +5,10 @@ echo "=== Testing Cloudflare Runtime Detection ==="
 
 # Set Cloudflare environment
 export CLOUDFLARE_APPLICATION_ID=test-app-123
-export CF_ACCOUNT_ID=test-account
-export CF_API_TOKEN=test-token
-export CF_D1_DATABASE_ID=test-d1-db
-export CF_R2_BUCKET_NAME=test-r2-bucket
+export CLOUDFLARE_ACCOUNT_ID=test-account
+export CLOUDFLARE_API_TOKEN=test-token
+export CLOUDFLARE_D1_DATABASE_ID=test-d1-db
+export CLOUDFLARE_R2_BUCKET_NAME=test-r2-bucket
 
 echo "✓ Cloudflare environment variables set"
 echo ""

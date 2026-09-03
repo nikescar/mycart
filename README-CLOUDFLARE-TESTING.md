@@ -14,13 +14,13 @@
 ```bash
 # Option A: Use environment override
 export RUNTIME=cloudflare
-export CF_ACCOUNT_ID=your-account-id
-export CF_API_TOKEN=your-api-token
+export CLOUDFLARE_ACCOUNT_ID=your-account-id
+export CLOUDFLARE_API_TOKEN=your-api-token
 
 # Option B: Use Cloudflare environment variable
 export CLOUDFLARE_APPLICATION_ID=test-app-id
-export CF_ACCOUNT_ID=your-account-id
-export CF_API_TOKEN=your-api-token
+export CLOUDFLARE_ACCOUNT_ID=your-account-id
+export CLOUDFLARE_API_TOKEN=your-api-token
 ```
 
 ### 2. Run the Server
@@ -105,8 +105,8 @@ You can test the runtime detection and code paths without a real Cloudflare acco
 
 ```bash
 export CLOUDFLARE_APPLICATION_ID=mock-test
-export CF_ACCOUNT_ID=mock-account
-export CF_API_TOKEN=mock-token
+export CLOUDFLARE_ACCOUNT_ID=mock-account
+export CLOUDFLARE_API_TOKEN=mock-token
 
 go run ./cmd serve --dev
 ```

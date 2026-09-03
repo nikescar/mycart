@@ -190,11 +190,11 @@ func copyFile(src, dst string) error {
 }
 
 func exportD1ToSQLite(databaseID, outputPath string) error {
-	accountID := os.Getenv("CF_ACCOUNT_ID")
-	apiToken := os.Getenv("CF_API_TOKEN")
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
 
 	if accountID == "" || apiToken == "" {
-		return fmt.Errorf("CF_ACCOUNT_ID and CF_API_TOKEN must be set for D1 operations")
+		return fmt.Errorf("CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set for D1 operations")
 	}
 
 	client := cloudflare.NewD1Client(accountID, apiToken)
@@ -202,11 +202,11 @@ func exportD1ToSQLite(databaseID, outputPath string) error {
 }
 
 func importSQLiteToD1(sqlitePath, databaseID string) error {
-	accountID := os.Getenv("CF_ACCOUNT_ID")
-	apiToken := os.Getenv("CF_API_TOKEN")
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
 
 	if accountID == "" || apiToken == "" {
-		return fmt.Errorf("CF_ACCOUNT_ID and CF_API_TOKEN must be set for D1 operations")
+		return fmt.Errorf("CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set for D1 operations")
 	}
 
 	client := cloudflare.NewD1Client(accountID, apiToken)

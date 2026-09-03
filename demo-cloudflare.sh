@@ -9,12 +9,12 @@ pkill -f "mycart serve" 2>/dev/null
 
 # Set Cloudflare environment
 export CLOUDFLARE_APPLICATION_ID=test-app-123
-export CF_ACCOUNT_ID=mock-account
-export CF_API_TOKEN=mock-token
+export CLOUDFLARE_ACCOUNT_ID=mock-account
+export CLOUDFLARE_API_TOKEN=mock-token
 
 echo "1. Environment variables set:"
 echo "   CLOUDFLARE_APPLICATION_ID=$CLOUDFLARE_APPLICATION_ID"
-echo "   CF_ACCOUNT_ID=$CF_ACCOUNT_ID"
+echo "   CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID"
 echo ""
 
 # Build

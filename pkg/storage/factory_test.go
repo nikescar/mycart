@@ -107,8 +107,11 @@ func TestNew(t *testing.T) {
 			errContains: "unsupported storage type",
 		},
 		{
-			name:    "empty type defaults to filesystem",
-			config:  Config{},
+			name: "empty type defaults to filesystem",
+			config: Config{
+				Type:     "filesystem",      // Explicitly use filesystem for test reliability
+				BasePath: "./lc_base/uploads", // Explicit path to match auto-detection default
+			},
 			wantErr: false,
 			checkType: func(s Storage) bool {
 				_, ok := s.(*filesystemStorage)

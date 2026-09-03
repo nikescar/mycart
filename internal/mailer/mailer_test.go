@@ -11,6 +11,7 @@ import (
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 )
 
 // bootstrapDB brings up a fresh queries DB in a temp working directory.
@@ -26,7 +27,13 @@ func bootstrapDB(t *testing.T) *queries.Base {
 	_ = os.MkdirAll("lc_base", 0o775)
 	t.Cleanup(func() { _ = os.Chdir(prev) })
 
-	if err := queries.New(migrations.Embed()); err != nil {
+	db, err := database.NewSQLite("./lc_base/data.db")
+	if err != nil {
+		t.Fatalf("create database: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if err := queries.New(db, migrations.Embed()); err != nil {
 		t.Fatalf("queries.New: %v", err)
 	}
 	return queries.DB()

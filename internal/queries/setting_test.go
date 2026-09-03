@@ -2,6 +2,7 @@ package queries
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -10,23 +11,30 @@ import (
 	"github.com/shurco/mycart/pkg/database"
 )
 
-// bootstrap initialises a fresh DB in a temp workdir and returns the *Base.
+// bootstrap initialises a fresh in-memory SQLite DB and returns the *Base.
 // The returned context has a 5s deadline so hung queries surface as test
 // failures rather than timeouts.
+//
+// Note: For queries package tests, we always use SQLite to avoid circular
+// dependency with testutil. Integration tests with D1 are in other packages.
 func bootstrap(t *testing.T) (*Base, context.Context) {
 	t.Helper()
-	cleanup := withTempBase(t)
-	t.Cleanup(cleanup)
 
-	dbInst, err := database.NewSQLite("./lc_base/data.db")
+	// Use in-memory SQLite for fast, isolated tests
+	dbInst, err := database.New(database.Config{
+		Type: "sqlite",
+		Path: ":memory:",
+	})
 	if err != nil {
 		t.Fatalf("create database: %v", err)
 	}
 	t.Cleanup(func() { dbInst.Close() })
 
+	// Run migrations
 	if err := New(dbInst, migrations.Embed()); err != nil {
 		t.Fatalf("init queries: %v", err)
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	t.Cleanup(cancel)
 	return DB(), ctx

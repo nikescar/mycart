@@ -9,7 +9,7 @@ import (
 
 func TestMaintenanceEnable(t *testing.T) {
 	// Ensure clean state
-	os.Remove(".maintenance")
+	os.Remove("maintenance.flag")
 
 	// Execute enable command
 	cmd := cmdMaintenanceEnable()
@@ -19,16 +19,16 @@ func TestMaintenanceEnable(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify file created
-	_, err = os.Stat(".maintenance")
-	assert.NoError(t, err, ".maintenance file should exist")
+	_, err = os.Stat("maintenance.flag")
+	assert.NoError(t, err, "maintenance.flag file should exist")
 
 	// Cleanup
-	os.Remove(".maintenance")
+	os.Remove("maintenance.flag")
 }
 
 func TestMaintenanceDisable(t *testing.T) {
-	// Setup: create .maintenance file
-	f, err := os.Create(".maintenance")
+	// Setup: create maintenance.flag file
+	f, err := os.Create("maintenance.flag")
 	assert.NoError(t, err)
 	f.Close()
 
@@ -40,23 +40,23 @@ func TestMaintenanceDisable(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Verify file removed
-	_, err = os.Stat(".maintenance")
-	assert.True(t, os.IsNotExist(err), ".maintenance file should not exist")
+	_, err = os.Stat("maintenance.flag")
+	assert.True(t, os.IsNotExist(err), "maintenance.flag file should not exist")
 }
 
 func TestMaintenanceStatus(t *testing.T) {
 	// Test when disabled
-	os.Remove(".maintenance")
+	os.Remove("maintenance.flag")
 	cmd := cmdMaintenanceStatus()
 	cmd.SetArgs([]string{})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
 	// Test when enabled
-	f, err := os.Create(".maintenance")
+	f, err := os.Create("maintenance.flag")
 	assert.NoError(t, err)
 	f.Close()
-	defer os.Remove(".maintenance")
+	defer os.Remove("maintenance.flag")
 
 	cmd = cmdMaintenanceStatus()
 	cmd.SetArgs([]string{})

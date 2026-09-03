@@ -73,7 +73,7 @@ func (q *CartQueries) Carts(ctx context.Context, limit, offset int) ([]*models.C
 		payment_status,
 		payment_system,
 		strftime('%s', created),
-		COALESCE(strftime('%s', updated), '')
+		COALESCE(strftime('%s', updated), '0')
 	FROM cart
 	ORDER BY created DESC
 `
@@ -151,7 +151,7 @@ func (q *CartQueries) Cart(ctx context.Context, cartId string) (*models.Cart, er
     payment_status,
     payment_system,
     strftime('%s', created),
-    COALESCE(strftime('%s', updated), '')
+    COALESCE(strftime('%s', updated), '0')
 	FROM cart
 	WHERE id = ?
 	`

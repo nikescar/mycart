@@ -10,6 +10,7 @@ import (
 
 	"github.com/shurco/mycart/internal/queries"
 	"github.com/shurco/mycart/migrations"
+	"github.com/shurco/mycart/pkg/database"
 )
 
 // routesTestDB brings up a blank queries DB so handlers wired into these
@@ -23,7 +24,14 @@ func routesTestDB(t *testing.T) {
 	}
 	_ = os.MkdirAll("lc_base", 0o775)
 	t.Cleanup(func() { _ = os.Chdir(prev) })
-	if err := queries.New(migrations.Embed()); err != nil {
+
+	db, err := database.NewSQLite("./lc_base/data.db")
+	if err != nil {
+		t.Fatalf("create database: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if err := queries.New(db, migrations.Embed()); err != nil {
 		t.Fatalf("queries.New: %v", err)
 	}
 }

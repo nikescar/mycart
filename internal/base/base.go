@@ -63,6 +63,9 @@ func Migrate(dbPath string, migrations embed.FS) error {
 
 // MigrateDB performs database migrations on an existing *sql.DB connection
 func MigrateDB(db *sql.DB, migrations embed.FS) error {
+	if err := goose.SetDialect("sqlite3"); err != nil {
+		return err
+	}
 	goose.SetBaseFS(migrations)
 	goose.SetTableName("migrate_db_version")
 	return goose.Up(db, ".")

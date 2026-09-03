@@ -24,15 +24,7 @@ func TestGetStatus(t *testing.T) {
 
 	assert.Contains(t, result, "database")
 	assert.Contains(t, result, "storage")
-	assert.Contains(t, result, "wrangler")
-}
-
-func TestIsWranglerInstalled(t *testing.T) {
-	// This test checks the helper function
-	// Actual result depends on local environment
-	result := isWranglerInstalled()
-	// Just verify it returns a boolean without panicking
-	assert.IsType(t, false, result)
+	assert.Contains(t, result, "runtime")
 }
 
 func TestIsMaintenanceMode(t *testing.T) {

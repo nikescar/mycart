@@ -12,6 +12,11 @@ func IsCloudflare() bool {
 		return true
 	}
 
+	// Check for test environment with Cloudflare credentials
+	if os.Getenv("CLOUDFLARE_TEST_ACCOUNT_ID") != "" {
+		return true
+	}
+
 	// Auto-detect Cloudflare environment
 	return os.Getenv("CLOUDFLARE_APPLICATION_ID") != ""
 }
@@ -64,4 +69,34 @@ func GetDatabasePath() string {
 		return "./lc_base/mycart.db"
 	}
 	return path
+}
+
+// GetD1AccountID returns the Cloudflare account ID from environment
+func GetD1AccountID() string {
+	// Check test credentials first
+	if id := os.Getenv("CLOUDFLARE_TEST_ACCOUNT_ID"); id != "" {
+		return id
+	}
+	// Production credentials
+	return os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+}
+
+// GetD1DatabaseID returns the Cloudflare D1 database ID from environment
+func GetD1DatabaseID() string {
+	// Check test credentials first
+	if id := os.Getenv("CLOUDFLARE_TEST_DATABASE_ID"); id != "" {
+		return id
+	}
+	// Production credentials
+	return os.Getenv("CLOUDFLARE_DATABASE_ID")
+}
+
+// GetD1APIToken returns the Cloudflare API token from environment
+func GetD1APIToken() string {
+	// Check test credentials first
+	if token := os.Getenv("CLOUDFLARE_TEST_API_TOKEN"); token != "" {
+		return token
+	}
+	// Production credentials
+	return os.Getenv("CLOUDFLARE_API_TOKEN")
 }

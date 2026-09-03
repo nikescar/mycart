@@ -25,18 +25,8 @@ func withTempBase(t *testing.T) func() {
 }
 
 func Test_queries_init_and_settings(t *testing.T) {
-	cleanup := withTempBase(t)
+	cleanup := testutil.SetupTestEnv(t)
 	defer cleanup()
-
-	db, err := database.NewSQLite("./lc_base/data.db")
-	if err != nil {
-		t.Fatalf("create database: %v", err)
-	}
-	defer db.Close()
-
-	if err := New(db, migrations.Embed()); err != nil {
-		t.Fatalf("init queries: %v", err)
-	}
 
 	queries := DB()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -52,18 +42,9 @@ func Test_queries_init_and_settings(t *testing.T) {
 }
 
 func Test_queries_page_crud(t *testing.T) {
-	cleanup := withTempBase(t)
+	cleanup := testutil.SetupTestEnv(t)
 	defer cleanup()
 
-	dbInst, err := database.NewSQLite("./lc_base/data.db")
-	if err != nil {
-		t.Fatalf("create database: %v", err)
-	}
-	defer dbInst.Close()
-
-	if err := New(dbInst, migrations.Embed()); err != nil {
-		t.Fatalf("init queries: %v", err)
-	}
 	queries := DB()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

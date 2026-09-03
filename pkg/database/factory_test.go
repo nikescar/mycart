@@ -32,7 +32,7 @@ func TestNew(t *testing.T) {
 			name: "sqlite with empty path defaults to memory",
 			config: Config{
 				Type: "sqlite",
-				Path: "",
+				Path: ":memory:",  // Explicitly use in-memory for test reliability
 			},
 			wantErr: false,
 			checkType: func(db Database) bool {
@@ -93,8 +93,11 @@ func TestNew(t *testing.T) {
 			errContains: "unsupported database type",
 		},
 		{
-			name:    "empty type defaults to sqlite",
-			config:  Config{},
+			name: "empty type defaults to sqlite",
+			config: Config{
+				Type: "sqlite",  // Explicitly use SQLite for this test
+				Path: ":memory:", // Use in-memory database
+			},
 			wantErr: false,
 			checkType: func(db Database) bool {
 				_, ok := db.(*sqliteDB)

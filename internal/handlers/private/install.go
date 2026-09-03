@@ -205,6 +205,16 @@ func Install(c fiber.Ctx) error {
 			"CLOUDFLARE_D1_DATABASE_ID": request.CFD1DatabaseID,
 			"CLOUDFLARE_R2_BUCKET_NAME": request.CFR2BucketName,
 		}
+
+		// Set database and storage types for Cloudflare deployment
+		if request.CFD1DatabaseID != "" {
+			envVars["DB_TYPE"] = "d1"
+		}
+		if request.CFR2BucketName != "" {
+			envVars["STORAGE_TYPE"] = "r2"
+			// R2 credentials are already in envVars (access key and secret key should be provided)
+		}
+
 		if err := envfile.WriteEnv(envVars); err != nil {
 			log.Warn().Err(err).Msg("Failed to save Cloudflare credentials to .env")
 			// Continue anyway - user can set manually

@@ -196,13 +196,9 @@
       const url = new URL(window.location.href)
       domain = url.origin.replace(/^https?:\/\//, '')
 
-      // Check if running in Cloudflare mode
-      try {
-        const status = await apiGet('/_/api/maintenance/status')
-        isCloudflare = status?.runtime?.cloudflare || false
-      } catch (error) {
-        console.error('Failed to check runtime environment:', error)
-      }
+      // Cloudflare mode detection removed - maintenance API no longer exists
+      // User can manually enable Cloudflare mode if needed
+      isCloudflare = false
     }
   })
 </script>

@@ -2,7 +2,6 @@ package queries
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 

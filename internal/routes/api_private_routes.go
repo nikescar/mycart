@@ -4,7 +4,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/shurco/mycart/internal/handlers/cloudflare"
-	"github.com/shurco/mycart/internal/handlers/maintenance"
 	handlers "github.com/shurco/mycart/internal/handlers/private"
 	"github.com/shurco/mycart/internal/middleware"
 )
@@ -64,14 +63,6 @@ func ApiPrivateRoutes(c *fiber.App) {
 	carts.Get("/", handlers.Carts)
 	carts.Get("/:cart_id<len(15)>", handlers.Cart)
 	carts.Post("/:cart_id<len(15)>/mail", handlers.CartSendMail)
-
-	// maintenance
-	maintenanceGroup := c.Group("/_/api/maintenance")
-	maintenanceGroup.Get("/status", maintenance.GetStatus)
-	maintenanceGroup.Post("/backup", maintenance.BackupDatabase)
-	maintenanceGroup.Post("/restore", maintenance.RestoreDatabase)
-	maintenanceGroup.Post("/switch", maintenance.SwitchDatabase)
-	maintenanceGroup.Post("/enable-and-restart", maintenance.EnableMaintenanceAndRestart)
 
 	// cloudflare installer APIs (no auth required - used during install)
 	cfGroup := c.Group("/api/install/cloudflare")

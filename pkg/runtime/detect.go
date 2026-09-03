@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"os"
-	"path/filepath"
 )
 
 // IsCloudflare checks if the app is running in Cloudflare Workers environment
@@ -16,41 +15,6 @@ func IsCloudflare() bool {
 	// Do NOT check test credentials here - they should only be used
 	// when RUNTIME=cloudflare is explicitly set
 	return os.Getenv("CLOUDFLARE_APPLICATION_ID") != ""
-}
-
-// isWritable is a variable to allow mocking in tests
-var isWritable = func(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {
-		return false
-	}
-
-	if !info.IsDir() {
-		return false
-	}
-
-	// Try to create a temp file to verify write access
-	testFile := filepath.Join(path, ".write_test")
-	f, err := os.Create(testFile)
-	if err != nil {
-		return false
-	}
-	f.Close()
-	os.Remove(testFile)
-
-	return true
-}
-
-// GetMaintenanceFlagPath returns the appropriate maintenance flag path
-// based on the runtime environment
-func GetMaintenanceFlagPath() string {
-	// Try /app first (Docker/Cloudflare)
-	if isWritable("/app") {
-		return "/app/maintenance.flag"
-	}
-
-	// Fallback to local project root
-	return "./maintenance.flag"
 }
 
 // GetDatabasePath returns the appropriate database path based on runtime

@@ -114,11 +114,23 @@ func checkD1Installation(accountID, apiToken, databaseID string) (bool, error) {
 		return false, fmt.Errorf("connect to D1: %w", err)
 	}
 
-	// Try to query the setting table to check if installed
+	// Check if setting table exists and has installed flag
 	var rawInstalled string
 	err = db.QueryRow(context.Background(), `SELECT value FROM setting WHERE key = 'installed'`).Scan(&rawInstalled)
 	if err != nil {
-		// Table might not exist yet (not installed)
+		// Query failed - check if it's because table doesn't exist or row doesn't exist
+		// Try to check if any tables exist in the database
+		var tableCount int
+		checkErr := db.QueryRow(context.Background(),
+			`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`).Scan(&tableCount)
+
+		if checkErr == nil && tableCount > 0 {
+			// Tables exist but installed flag is missing or query failed
+			// This means a previous installation was incomplete - treat as installed to prevent conflicts
+			return true, nil
+		}
+
+		// No tables exist - not installed
 		return false, nil
 	}
 

@@ -10,6 +10,12 @@ type Main struct {
 	SiteName string `json:"site_name"`
 	Domain   string `json:"domain"`
 	Email    string `json:"email"`
+	// Computed fields (read-only, not stored in database)
+	DeploymentType string `json:"deployment_type,omitempty"`
+	DatabaseType   string `json:"database_type,omitempty"`
+	StorageType    string `json:"storage_type,omitempty"`
+	DatabasePath   string `json:"database_path,omitempty"`
+	StoragePath    string `json:"storage_path,omitempty"`
 }
 
 // Validate is ...

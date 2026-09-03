@@ -134,6 +134,39 @@ func GetSetting(c fiber.Ctx) error {
 		log.ErrorStack(err)
 		return webutil.StatusInternalServerError(c)
 	}
+
+	// Populate computed fields for "main" settings
+	if settingKey == "main" {
+		if main, ok := section.(*models.Main); ok {
+			// Get database type from the database instance
+			dbType := db.Type()
+			main.DatabaseType = dbType
+
+			// Determine storage type based on database type
+			// (they're always paired: sqlite+filesystem or d1+r2)
+			var storageType string
+			if dbType == "d1" {
+				storageType = "r2"
+				main.DeploymentType = "cloudflare"
+			} else {
+				storageType = "filesystem"
+				main.DeploymentType = "local"
+				// For local deployment, include file paths
+				if dbPath := os.Getenv("DB_PATH"); dbPath != "" {
+					main.DatabasePath = dbPath
+				} else {
+					main.DatabasePath = "./lc_base/data.db"
+				}
+				if storagePath := os.Getenv("STORAGE_BASE_PATH"); storagePath != "" {
+					main.StoragePath = storagePath
+				} else {
+					main.StoragePath = "./lc_base/uploads"
+				}
+			}
+			main.StorageType = storageType
+		}
+	}
+
 	return webutil.Response(c, fiber.StatusOK, "Setting", section)
 }
 

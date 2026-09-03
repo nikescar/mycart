@@ -16,6 +16,11 @@
     site_name: string
     domain: string
     email: string
+    deployment_type?: string
+    database_type?: string
+    storage_type?: string
+    database_path?: string
+    storage_path?: string
   }
 
   let formData = $state<MainSettings>({
@@ -103,6 +108,34 @@
             {loc.name}
           </div>
         {/each}
+      </div>
+    </div>
+
+    <hr class="mt-5" />
+
+    <div class="mt-5">
+      <h2 class="mb-5">Deployment Information</h2>
+      <div class="space-y-2 text-sm text-gray-700">
+        <div>
+          <span class="font-medium">Deployment Type:</span>
+          <span class="ml-2 rounded bg-gray-100 px-2 py-1 font-semibold">
+            {formData.deployment_type || '-'}
+          </span>
+        </div>
+        <div>
+          <span class="font-medium">Database:</span>
+          <span class="ml-2">{formData.database_type || '-'}</span>
+          {#if formData.database_path}
+            <span class="ml-2 text-xs text-gray-500">({formData.database_path})</span>
+          {/if}
+        </div>
+        <div>
+          <span class="font-medium">Storage:</span>
+          <span class="ml-2">{formData.storage_type || '-'}</span>
+          {#if formData.storage_path}
+            <span class="ml-2 text-xs text-gray-500">({formData.storage_path})</span>
+          {/if}
+        </div>
       </div>
     </div>
   {/if}

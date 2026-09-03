@@ -20,10 +20,6 @@ func IsCloudflare() bool {
 	if os.Getenv("CLOUDFLARE_APPLICATION_ID") != "" {
 		return true
 	}
-	// Legacy detection (deprecated, use CLOUDFLARE_APPLICATION_ID)
-	if os.Getenv("CF_PAGES") != "" {
-		return true
-	}
 	return false
 }
 

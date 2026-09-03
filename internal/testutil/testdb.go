@@ -73,13 +73,14 @@ func SetupTestDB(t *testing.T) func() {
 	}
 }
 
-// SetupTestApp creates in-memory DB with fixtures, Fiber app, and JWT cookie.
+// SetupTestApp creates DB with fixtures, Fiber app, and JWT cookie.
+// Automatically uses D1 if .env.test is configured, otherwise in-memory SQLite.
 // Fixtures already contain installed state + JWT secret. A matching session
 // row is created so the token passes the middleware revocation check.
 func SetupTestApp(t *testing.T) (app *fiber.App, cookie string, cleanup func()) {
 	t.Helper()
 
-	dbCleanup := SetupTestDB(t)
+	dbCleanup := SetupTestDBSmart(t)
 	app = fiber.New()
 
 	exp := time.Now().Add(time.Hour).Unix()

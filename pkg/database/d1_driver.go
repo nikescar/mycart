@@ -22,6 +22,124 @@ func init() {
 	sql.Register("d1", &d1Driver{})
 }
 
+// extractColumnsFromSQL attempts to parse column names from a SELECT statement
+// This is a simple parser that handles common cases but may not cover all SQL syntax
+func extractColumnsFromSQL(sql string) []string {
+	sql = strings.TrimSpace(sql)
+
+	// Find SELECT keyword (case-insensitive)
+	selectIdx := strings.Index(strings.ToUpper(sql), "SELECT")
+	if selectIdx == -1 {
+		return nil
+	}
+
+	// Find FROM keyword
+	fromIdx := strings.Index(strings.ToUpper(sql[selectIdx:]), " FROM ")
+	if fromIdx == -1 {
+		return nil
+	}
+	fromIdx += selectIdx
+
+	// Extract column list between SELECT and FROM
+	columnsPart := strings.TrimSpace(sql[selectIdx+6 : fromIdx])
+
+	// Remove DISTINCT if present
+	columnsPart = strings.TrimPrefix(strings.TrimSpace(strings.ToUpper(columnsPart)), "DISTINCT")
+	columnsPart = strings.TrimSpace(columnsPart)
+	// Restore original case
+	if strings.HasPrefix(strings.ToUpper(sql[selectIdx+6:fromIdx]), "DISTINCT") {
+		distinctEnd := selectIdx + 6 + strings.Index(strings.ToUpper(sql[selectIdx+6:fromIdx]), "DISTINCT") + 8
+		columnsPart = strings.TrimSpace(sql[distinctEnd:fromIdx])
+	}
+
+	// Handle SELECT *
+	if columnsPart == "*" {
+		return nil // Can't determine columns from *
+	}
+
+	// Split by comma, handling nested function calls
+	var columns []string
+	var current strings.Builder
+	parenDepth := 0
+
+	for _, ch := range columnsPart {
+		switch ch {
+		case '(':
+			parenDepth++
+			current.WriteRune(ch)
+		case ')':
+			parenDepth--
+			current.WriteRune(ch)
+		case ',':
+			if parenDepth == 0 {
+				col := parseColumnName(current.String())
+				if col != "" {
+					columns = append(columns, col)
+				}
+				current.Reset()
+			} else {
+				current.WriteRune(ch)
+			}
+		default:
+			current.WriteRune(ch)
+		}
+	}
+
+	// Add last column
+	if current.Len() > 0 {
+		col := parseColumnName(current.String())
+		if col != "" {
+			columns = append(columns, col)
+		}
+	}
+
+	return columns
+}
+
+// parseColumnName extracts the actual column name from a column expression
+// Handles: "table.column", "column AS alias", "function(column) as alias", etc.
+func parseColumnName(expr string) string {
+	expr = strings.TrimSpace(expr)
+
+	// Check for AS alias
+	asIdx := -1
+	upperExpr := strings.ToUpper(expr)
+	if idx := strings.LastIndex(upperExpr, " AS "); idx != -1 {
+		asIdx = idx
+	} else if idx := strings.LastIndex(upperExpr, " "); idx != -1 {
+		// Handle implicit alias (column alias without AS keyword)
+		// But only if it's not a function call or table.column
+		if !strings.Contains(expr[:idx], "(") && !strings.Contains(expr[:idx], ".") {
+			asIdx = idx
+		}
+	}
+
+	var columnExpr string
+	if asIdx != -1 {
+		// Use the alias as the column name
+		alias := strings.TrimSpace(expr[asIdx:])
+		alias = strings.TrimPrefix(strings.ToUpper(alias), "AS")
+		alias = strings.TrimSpace(alias)
+		// Use original case from expr
+		aliasStart := asIdx
+		if strings.HasPrefix(strings.ToUpper(expr[asIdx:]), " AS ") {
+			aliasStart += 4
+		} else {
+			aliasStart++
+		}
+		return strings.TrimSpace(expr[aliasStart:])
+	}
+
+	columnExpr = expr
+
+	// Remove table prefix (table.column -> column)
+	if dotIdx := strings.LastIndex(columnExpr, "."); dotIdx != -1 {
+		columnExpr = columnExpr[dotIdx+1:]
+	}
+
+	return strings.TrimSpace(columnExpr)
+}
+
 // marshalParam converts a driver.Value to a string for D1 API in a type-safe way
 func marshalParam(arg driver.Value) (string, error) {
 	switch v := arg.(type) {
@@ -104,7 +222,9 @@ func (c *d1Conn) Close() error {
 }
 
 func (c *d1Conn) Begin() (driver.Tx, error) {
-	return nil, fmt.Errorf("D1 does not support transactions - use batch queries or accept eventual consistency")
+	// D1 doesn't support real transactions, but we return a no-op transaction
+	// that just executes statements directly to maintain API compatibility
+	return &d1DriverTx{conn: c}, nil
 }
 
 // d1DriverStmt implements driver.Stmt
@@ -204,31 +324,45 @@ func (s *d1DriverStmt) queryRows(ctx context.Context, args []driver.Value) (driv
 	rows := make([][]interface{}, 0)
 
 	if len(firstResult.Results) > 0 {
-		// Convert interface{} to map
 		firstRow, ok := firstResult.Results[0].(map[string]interface{})
-		if ok {
-			// Get column names from first row
-			// Extract to slice first
-			cols := make([]string, 0, len(firstRow))
-			for col := range firstRow {
-				cols = append(cols, col)
-			}
-			// Sort for stable ordering (map iteration order is undefined)
-			sort.Strings(cols)
-			columns = cols
+		if !ok {
+			return nil, fmt.Errorf("unexpected D1 result format")
+		}
 
-			// Extract all rows
-			for _, resultRow := range firstResult.Results {
-				rowMap, ok := resultRow.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				row := make([]interface{}, len(columns))
-				for j, col := range columns {
-					row[j] = rowMap[col]
-				}
-				rows = append(rows, row)
+		// D1 API returns JSON objects where key order is undefined
+		// We MUST use alphabetical sorting for consistent column order
+		// NOTE: All SELECT statements must list columns alphabetically to match Scan order
+		columns = make([]string, 0, len(firstRow))
+		for col := range firstRow {
+			columns = append(columns, col)
+		}
+		sort.Strings(columns)
+
+		// Extract all rows using the determined column order
+		// Note: D1 may return column names in different case than the SELECT statement
+		// so we need case-insensitive matching
+		for _, resultRow := range firstResult.Results {
+			rowMap, ok := resultRow.(map[string]interface{})
+			if !ok {
+				continue
 			}
+
+			// Create case-insensitive lookup map
+			lowerCaseMap := make(map[string]interface{}, len(rowMap))
+			for k, v := range rowMap {
+				lowerCaseMap[strings.ToLower(k)] = v
+			}
+
+			row := make([]interface{}, len(columns))
+			for j, col := range columns {
+				// Try exact match first, then case-insensitive
+				if val, ok := rowMap[col]; ok {
+					row[j] = val
+				} else {
+					row[j] = lowerCaseMap[strings.ToLower(col)]
+				}
+			}
+			rows = append(rows, row)
 		}
 	}
 

@@ -97,15 +97,26 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 
 	// Get applied migrations
 	appliedVersions := make(map[int64]bool)
+	fmt.Printf("[D1] Checking for applied migrations in migrate_db_version table\n")
 	rows, err := db.Query(ctx, `SELECT version_id FROM migrate_db_version WHERE is_applied = 1`)
 	if err == nil {
 		defer rows.Close()
+		rowCount := 0
 		for rows.Next() {
 			var version int64
 			if err := rows.Scan(&version); err == nil {
 				appliedVersions[version] = true
+				fmt.Printf("[D1] Found applied migration: version %d\n", version)
+				rowCount++
+			} else {
+				fmt.Printf("[D1] WARNING: Failed to scan migration row: %v\n", err)
 			}
 		}
+		if rowCount == 0 {
+			fmt.Printf("[D1] WARNING: Query succeeded but returned 0 rows (migrations table might be empty or query failed)\n")
+		}
+	} else {
+		fmt.Printf("[D1] No applied migrations found (table might not exist yet): %v\n", err)
 	}
 
 	// Read and sort migration files
@@ -124,6 +135,8 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 	}
 	sort.Strings(migrationFiles)
 
+	fmt.Printf("[D1] Found %d migration files\n", len(migrationFiles))
+
 	// Execute migrations
 	for _, file := range migrationFiles {
 		// Parse version from filename (e.g., "20230714135923_init_db.sql" -> 20230714135923)
@@ -140,6 +153,7 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 
 		// Skip if already applied
 		if appliedVersions[version] {
+			fmt.Printf("[D1] Skipping migration %s (version %d) - already applied\n", baseName, version)
 			continue
 		}
 
@@ -152,6 +166,9 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 		// Parse and execute SQL statements
 		sqlContent := string(sqlBytes)
 		statements := parseSQLStatements(sqlContent)
+		
+		// Debug logging
+		fmt.Printf("[D1] Executing migration %s with %d statements\n", baseName, len(statements))
 
 		for _, stmt := range statements {
 			if stmt = strings.TrimSpace(stmt); stmt == "" {
@@ -159,6 +176,7 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 			}
 			_, err := db.Exec(ctx, stmt)
 			if err != nil {
+				fmt.Printf("[D1] ERROR in %s: %v\n", baseName, err)
 				return fmt.Errorf("exec migration %s statement: %s: %w", file, stmt[:50], err)
 			}
 		}
@@ -168,6 +186,8 @@ func MigrateD1(db database.Database, migrations embed.FS) error {
 		if err != nil {
 			return fmt.Errorf("record migration %s: %w", file, err)
 		}
+		
+		fmt.Printf("[D1] ✓ Migration %s completed successfully\n", baseName)
 	}
 
 	return nil

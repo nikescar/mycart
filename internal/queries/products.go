@@ -48,22 +48,24 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 		variantsFilter = " AND active = 1"
 	}
 
+	// IMPORTANT: Columns MUST be in alphabetical order for D1 compatibility
+	// D1 driver sorts columns alphabetically, so SELECT order must match Scan order
 	query := fmt.Sprintf(`
 			SELECT DISTINCT
-			  product.id,
-				product.name,
-				product.brief,
-				product.slug,
-				product.amount,
-				product.quantity,
-				product.has_variants,
 				product.active,
+				product.amount,
+				product.brief,
+				strftime('%%s', created) as created,
 				product.digital,
 				EXISTS(SELECT 1 FROM digital_data WHERE digital_data.product_id = product.id AND digital_data.cart_id IS NULL) OR
 				EXISTS(SELECT 1 FROM digital_file WHERE digital_file.product_id = product.id) AS digital_filled,
+				product.has_variants,
+				product.id,
 				(SELECT json_group_array(json_object('id', product_image.id, 'name', product_image.name, 'ext', product_image.ext)) as images FROM product_image WHERE product_id = product.id GROUP BY id LIMIT 1) as image,
-				(SELECT json_group_array(json_object('id', product_variant.id, 'sku', product_variant.sku, 'quantity', product_variant.quantity, 'price_surcharge', product_variant.price_surcharge, 'option_values', json(product_variant.option_values), 'active', CASE WHEN product_variant.active = 1 THEN json('true') ELSE json('false') END)) FROM product_variant WHERE product_id = product.id%s) as variants,
-				strftime('%%s', created)
+				product.name,
+				product.quantity,
+				product.slug,
+				(SELECT json_group_array(json_object('id', product_variant.id, 'sku', product_variant.sku, 'quantity', product_variant.quantity, 'price_surcharge', product_variant.price_surcharge, 'option_values', json(product_variant.option_values), 'active', CASE WHEN product_variant.active = 1 THEN 1 ELSE 0 END)) FROM product_variant WHERE product_id = product.id%s) as variants
 			FROM product
 		`, variantsFilter)
 
@@ -116,20 +118,21 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 		var image, variants, digitalType sql.NullString
 		var digitalFilled, hasVariants sql.NullBool
 		product := models.Product{}
+		// IMPORTANT: Scan order MUST match SELECT alphabetical order for D1
 		err := rows.Scan(
-			&product.ID,
-			&product.Name,
-			&product.Brief,
-			&product.Slug,
-			&product.Amount,
-			&product.Quantity,
-			&hasVariants,
-			&product.Active,
-			&digitalType,
-			&digitalFilled,
-			&image,
-			&variants,
-			&product.Created,
+			&product.Active,      // active
+			&product.Amount,      // amount
+			&product.Brief,       // brief
+			&product.Created,     // created
+			&digitalType,         // digital
+			&digitalFilled,       // digital_filled
+			&hasVariants,         // has_variants
+			&product.ID,          // id
+			&image,               // image
+			&product.Name,        // name
+			&product.Quantity,    // quantity
+			&product.Slug,        // slug
+			&variants,            // variants
 		)
 		if err != nil {
 			return nil, err
@@ -182,37 +185,51 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (*models.Product, error) {
 	product := &models.Product{}
 
-	query := `
+	// IMPORTANT: Columns MUST be in alphabetical order for D1 compatibility
+	// D1 driver uses alphabetically sorted columns
+	baseQuery := `
 			SELECT DISTINCT
-				product.id,
-				product.name,
-				product.brief,
-				product.desc,
-				product.slug,
-				product.amount,
-				product.quantity,
-				product.sku,
-				product.has_variants,
 				product.active,
-				product.metadata,
+				product.amount,
 				product.attribute,
-				product.digital,
-				product.seo,
-				json_group_array(json_object('id', pi.id, 'name', pi.name, 'ext', pi.ext)) as images,
-				strftime('%s', product.created),
-				COALESCE(strftime('%s', product.updated), '0')
-	`
+				product.brief,
+				strftime('%s', product.created) as created,
+				product.desc,
+				product.digital`
 
-	// Добавляем вычисление digital_filled для приватных запросов
+	var query string
 	if private {
-		query += `, EXISTS(SELECT 1 FROM digital_data WHERE digital_data.product_id = product.id AND digital_data.cart_id IS NULL) OR
-				EXISTS(SELECT 1 FROM digital_file WHERE digital_file.product_id = product.id) AS digital_filled
+		// Private query includes digital_filled
+		query = baseQuery + `,
+				EXISTS(SELECT 1 FROM digital_data WHERE digital_data.product_id = product.id AND digital_data.cart_id IS NULL) OR
+				EXISTS(SELECT 1 FROM digital_file WHERE digital_file.product_id = product.id) AS digital_filled,
+				product.has_variants,
+				product.id,
+				json_group_array(json_object('id', pi.id, 'name', pi.name, 'ext', pi.ext)) as images,
+				product.metadata,
+				product.name,
+				product.quantity,
+				product.seo,
+				product.sku,
+				product.slug,
+				COALESCE(strftime('%s', product.updated), '0') as updated
 			FROM product
 			LEFT JOIN product_image pi ON product.id = pi.product_id
 			WHERE product.id = ?
 			GROUP BY product.id`
 	} else {
-		query += `
+		// Public query excludes digital_filled
+		query = baseQuery + `,
+				product.has_variants,
+				product.id,
+				json_group_array(json_object('id', pi.id, 'name', pi.name, 'ext', pi.ext)) as images,
+				product.metadata,
+				product.name,
+				product.quantity,
+				product.seo,
+				product.sku,
+				product.slug,
+				COALESCE(strftime('%s', product.updated), '0') as updated
 			FROM product
 			LEFT JOIN product_image pi ON product.id = pi.product_id
 			WHERE product.slug = ? AND product.deleted = 0 AND product.active = 1
@@ -224,30 +241,33 @@ func (q *ProductQueries) Product(ctx context.Context, private bool, id string) (
 	var digitalFilled, hasVariants sql.NullBool
 	var quantity sql.NullInt64
 
+	// IMPORTANT: Scan order MUST match SELECT alphabetical order
 	scanArgs := []any{
-		&product.ID,
-		&product.Name,
-		&product.Brief,
-		&product.Description,
-		&product.Slug,
-		&product.Amount,
-		&quantity,
-		&sku,
-		&hasVariants,
-		&product.Active,
-		&metadata,
-		&attributes,
-		&digitalType,
-		&seo,
-		&images,
-		&product.Created,
-		&updated,
+		&product.Active,      // active
+		&product.Amount,      // amount
+		&attributes,          // attribute
+		&product.Brief,       // brief
+		&product.Created,     // created
+		&product.Description, // desc
+		&digitalType,         // digital
 	}
 
-	// Добавляем digital_filled в scanArgs для приватных запросов
 	if private {
-		scanArgs = append(scanArgs, &digitalFilled)
+		scanArgs = append(scanArgs, &digitalFilled) // digital_filled
 	}
+
+	scanArgs = append(scanArgs,
+		&hasVariants,   // has_variants
+		&product.ID,    // id
+		&images,        // images
+		&metadata,      // metadata
+		&product.Name,  // name
+		&quantity,      // quantity
+		&seo,           // seo
+		&sku,           // sku
+		&product.Slug,  // slug
+		&updated,       // updated
+	)
 
 	err := q.DB.QueryRow(ctx, query, id).Scan(scanArgs...)
 	if err != nil {

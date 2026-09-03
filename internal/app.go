@@ -48,20 +48,23 @@ func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
 	// Load .env file if it exists (ignore error if file doesn't exist)
 	_ = godotenv.Load()
 
-	// Ensure local directories exist (only for local mode)
-	if !runtime.IsCloudflare() {
-		os.MkdirAll("./lc_base", 0755)
-		os.MkdirAll("./lc_base/uploads", 0755)
-		os.MkdirAll("./lc_base/backups", 0755)
-	}
-
 	DevMode = appDev
 	log = logging.New()
 
 	schema, mainAddr := determineSchemaAndAddr(httpAddr, httpsAddr)
 
-	// Load database configuration and create database
+	// Load database and storage configuration first
 	dbConfig := config.LoadDatabaseConfig()
+	storageConfig := config.LoadStorageConfig()
+
+	// Only create local directories when using local SQLite (not D1)
+	if dbConfig.Type != "d1" {
+		os.MkdirAll("./lc_base", 0755)
+		os.MkdirAll("./lc_base/uploads", 0755)
+		os.MkdirAll("./lc_base/backups", 0755)
+	}
+
+	// Create database
 	db, err := database.New(dbConfig)
 	if err != nil {
 		log.Err(err).Send()
@@ -74,8 +77,7 @@ func NewApp(httpAddr, httpsAddr string, noSite, appDev bool) error {
 		return err
 	}
 
-	// Load storage configuration and create storage
-	storageConfig := config.LoadStorageConfig()
+	// Create storage
 	s, err := storage.New(storageConfig)
 	if err != nil {
 		log.Err(err).Send()

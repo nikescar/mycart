@@ -30,7 +30,8 @@ func (q *PageQueries) IsPage(ctx context.Context, slug string) bool {
 func (q *PageQueries) ListPages(ctx context.Context, private bool, limit, offset int, idList ...string) ([]models.Page, int, error) {
 	pages := []models.Page{}
 
-	query := `SELECT id, name, slug, position, active, seo, strftime('%s', created), COALESCE(strftime('%s', updated), '0') FROM page`
+	// IMPORTANT: Columns in alphabetical order for D1 compatibility
+	query := `SELECT active, strftime('%s', created) as created, id, name, position, seo, slug, COALESCE(strftime('%s', updated), '0') as updated FROM page`
 	if !private {
 		query = query + ` WHERE active = 1`
 	}
@@ -67,7 +68,8 @@ func (q *PageQueries) ListPages(ctx context.Context, private bool, limit, offset
 		var seo sql.NullString
 		var updated sql.NullInt64
 
-		err := rows.Scan(&page.ID, &page.Name, &page.Slug, &page.Position, &page.Active, &seo, &page.Created, &updated)
+		// IMPORTANT: Scan order MUST match SELECT alphabetical order for D1
+		err := rows.Scan(&page.Active, &page.Created, &page.ID, &page.Name, &page.Position, &seo, &page.Slug, &updated)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -110,8 +112,10 @@ func (q *PageQueries) Page(ctx context.Context, slug string) (*models.Page, erro
 	}
 
 	var content, seo sql.NullString
-	query := `SELECT id, name, content, active, seo FROM page WHERE slug = ?`
-	err := q.DB.QueryRow(ctx, query, slug).Scan(&page.ID, &page.Name, &content, &page.Active, &seo)
+	// IMPORTANT: Columns MUST be in alphabetical order for D1 compatibility
+	query := `SELECT active, content, id, name, seo FROM page WHERE slug = ?`
+	// IMPORTANT: Scan order MUST match SELECT alphabetical order
+	err := q.DB.QueryRow(ctx, query, slug).Scan(&page.Active, &content, &page.ID, &page.Name, &seo)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrPageNotFound
@@ -135,8 +139,10 @@ func (q *PageQueries) PageByID(ctx context.Context, id string) (*models.Page, er
 
 	var content, seo sql.NullString
 	var updated sql.NullInt64
-	query := `SELECT id, name, slug, position, content, active, seo, strftime('%s', created), COALESCE(strftime('%s', updated), '0') FROM page WHERE id = ?`
-	err := q.DB.QueryRow(ctx, query, id).Scan(&page.ID, &page.Name, &page.Slug, &page.Position, &content, &page.Active, &seo, &page.Created, &updated)
+	// IMPORTANT: Columns MUST be in alphabetical order for D1 compatibility
+	query := `SELECT active, content, strftime('%s', created) as created, id, name, position, seo, slug, COALESCE(strftime('%s', updated), '0') as updated FROM page WHERE id = ?`
+	// IMPORTANT: Scan order MUST match SELECT alphabetical order
+	err := q.DB.QueryRow(ctx, query, id).Scan(&page.Active, &content, &page.Created, &page.ID, &page.Name, &page.Position, &seo, &page.Slug, &updated)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.ErrPageNotFound

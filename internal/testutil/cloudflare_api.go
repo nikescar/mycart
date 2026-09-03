@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/shurco/mycart/pkg/httpclient"
 )
 
 const cloudflareAPIBase = "https://api.cloudflare.com/client/v4"
@@ -21,9 +23,7 @@ func NewCloudflareClient(accountID, apiToken string) *CloudflareClient {
 	return &CloudflareClient{
 		accountID:  accountID,
 		apiToken:   apiToken,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		httpClient: httpclient.NewWithTimeout(30 * time.Second),
 	}
 }
 

@@ -4,10 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"regexp"
 )
 
 type d1DB struct {
 	db *sql.DB
+}
+
+// sanitizeDSN removes api_token from DSN string for safe error logging
+func sanitizeDSN(dsn string) string {
+	re := regexp.MustCompile(`api_token=[^&]*`)
+	return re.ReplaceAllString(dsn, "api_token=***")
 }
 
 // NewD1 creates a new Cloudflare D1 database instance using the d1 driver
@@ -27,12 +34,12 @@ func NewD1(accountID, databaseID, apiToken string) (Database, error) {
 
 	db, err := sql.Open("d1", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open D1 database: %w", err)
+		return nil, fmt.Errorf("failed to open D1 database [%s]: %w", sanitizeDSN(dsn), err)
 	}
 
 	// Test connection
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping D1 database: %w", err)
+		return nil, fmt.Errorf("failed to ping D1 database [%s]: %w", sanitizeDSN(dsn), err)
 	}
 
 	return &d1DB{db: db}, nil

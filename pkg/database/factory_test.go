@@ -104,6 +104,19 @@ func TestNew(t *testing.T) {
 				return ok
 			},
 		},
+		{
+			name: "auto-detect sqlite when Type is empty and not cloudflare",
+			config: Config{
+				// Empty Type triggers auto-detection via runtime.IsCloudflare()
+				Path: ":memory:",
+			},
+			wantErr: false,
+			checkType: func(db Database) bool {
+				// Should auto-detect to SQLite when not in Cloudflare environment
+				_, ok := db.(*sqliteDB)
+				return ok
+			},
+		},
 	}
 
 	for _, tt := range tests {

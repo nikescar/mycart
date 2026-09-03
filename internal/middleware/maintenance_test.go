@@ -10,6 +10,7 @@ import (
 func TestIsMaintenanceMode(t *testing.T) {
 	// Cleanup first
 	os.Remove("maintenance.flag")
+	resetMaintenanceCache()
 
 	// Test: no file = not in maintenance mode
 	assert.False(t, isMaintenanceMode())
@@ -19,10 +20,12 @@ func TestIsMaintenanceMode(t *testing.T) {
 	assert.NoError(t, err)
 	f.Close()
 
+	resetMaintenanceCache() // Reset cache to force re-check
 	assert.True(t, isMaintenanceMode())
 
 	// Cleanup
 	os.Remove("maintenance.flag")
+	resetMaintenanceCache()
 }
 
 func TestLoadAllowedIPs_Default(t *testing.T) {

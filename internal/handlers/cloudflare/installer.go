@@ -13,15 +13,20 @@ func ListD1Databases(c fiber.Ctx) error {
 	accountID := c.Query("account_id")
 	apiToken := c.Query("api_token")
 
-	if accountID == "" {
+	// Check if request credentials are incomplete
+	hasRequestCreds := accountID != "" || apiToken != ""
+	if hasRequestCreds {
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "incomplete Cloudflare credentials in request (both account_id and api_token required)")
+		}
+	} else {
+		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-	}
-	if apiToken == "" {
 		apiToken = os.Getenv("CF_API_TOKEN")
-	}
 
-	if accountID == "" || apiToken == "" {
-		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+		}
 	}
 
 	client := NewD1Client(accountID, apiToken)
@@ -51,15 +56,20 @@ func CreateD1Database(c fiber.Ctx) error {
 	accountID := req.AccountID
 	apiToken := req.APIToken
 
-	if accountID == "" {
+	// Check if request credentials are incomplete
+	hasRequestCreds := accountID != "" || apiToken != ""
+	if hasRequestCreds {
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "incomplete Cloudflare credentials in request (both account_id and api_token required)")
+		}
+	} else {
+		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-	}
-	if apiToken == "" {
 		apiToken = os.Getenv("CF_API_TOKEN")
-	}
 
-	if accountID == "" || apiToken == "" {
-		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+		}
 	}
 
 	client := NewD1Client(accountID, apiToken)
@@ -79,15 +89,20 @@ func ListR2Buckets(c fiber.Ctx) error {
 	accountID := c.Query("account_id")
 	apiToken := c.Query("api_token")
 
-	if accountID == "" {
+	// Check if request credentials are incomplete
+	hasRequestCreds := accountID != "" || apiToken != ""
+	if hasRequestCreds {
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "incomplete Cloudflare credentials in request (both account_id and api_token required)")
+		}
+	} else {
+		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-	}
-	if apiToken == "" {
 		apiToken = os.Getenv("CF_API_TOKEN")
-	}
 
-	if accountID == "" || apiToken == "" {
-		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+		}
 	}
 
 	client := NewR2Client(accountID, apiToken)
@@ -117,15 +132,20 @@ func CreateR2Bucket(c fiber.Ctx) error {
 	accountID := req.AccountID
 	apiToken := req.APIToken
 
-	if accountID == "" {
+	// Check if request credentials are incomplete
+	hasRequestCreds := accountID != "" || apiToken != ""
+	if hasRequestCreds {
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "incomplete Cloudflare credentials in request (both account_id and api_token required)")
+		}
+	} else {
+		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-	}
-	if apiToken == "" {
 		apiToken = os.Getenv("CF_API_TOKEN")
-	}
 
-	if accountID == "" || apiToken == "" {
-		return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN required")
+		if accountID == "" || apiToken == "" {
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+		}
 	}
 
 	client := NewR2Client(accountID, apiToken)

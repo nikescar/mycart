@@ -8,16 +8,13 @@ import (
 // IsCloudflare checks if the app is running in Cloudflare Workers environment
 func IsCloudflare() bool {
 	// Check for explicit override first
-	if runtime := os.Getenv("RUNTIME"); runtime == "cloudflare" {
-		return true
-	}
-
-	// Check for test environment with Cloudflare credentials
-	if os.Getenv("CLOUDFLARE_TEST_ACCOUNT_ID") != "" {
-		return true
+	if runtime := os.Getenv("RUNTIME"); runtime != "" {
+		return runtime == "cloudflare"
 	}
 
 	// Auto-detect Cloudflare environment
+	// Do NOT check test credentials here - they should only be used
+	// when RUNTIME=cloudflare is explicitly set
 	return os.Getenv("CLOUDFLARE_APPLICATION_ID") != ""
 }
 

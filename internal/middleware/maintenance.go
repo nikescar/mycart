@@ -3,9 +3,16 @@ package middleware
 import (
 	"os"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/shurco/mycart/pkg/runtime"
+)
+
+var (
+	maintenanceCache atomic.Bool
+	lastCheck        atomic.Int64
 )
 
 // MaintenanceMode middleware blocks requests when in maintenance mode
@@ -28,9 +35,20 @@ func MaintenanceMode() fiber.Handler {
 }
 
 func isMaintenanceMode() bool {
-	flagPath := runtime.GetMaintenanceFlagPath()
-	_, err := os.Stat(flagPath)
-	return err == nil
+	now := time.Now().Unix()
+	// Cache flag status for 1 second to avoid TOCTOU race and reduce stat calls
+	if now-lastCheck.Load() > 1 {
+		flagPath := runtime.GetMaintenanceFlagPath()
+		_, err := os.Stat(flagPath)
+		maintenanceCache.Store(err == nil)
+		lastCheck.Store(now)
+	}
+	return maintenanceCache.Load()
+}
+
+// resetMaintenanceCache clears the cache for testing purposes
+func resetMaintenanceCache() {
+	lastCheck.Store(0)
 }
 
 func isAuthorized(c fiber.Ctx) bool {

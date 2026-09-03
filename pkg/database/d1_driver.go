@@ -4,10 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cloudflare-go/v7"
 	"github.com/cloudflare/cloudflare-go/v7/d1"
@@ -16,6 +20,31 @@ import (
 
 func init() {
 	sql.Register("d1", &d1Driver{})
+}
+
+// marshalParam converts a driver.Value to a string for D1 API in a type-safe way
+func marshalParam(arg driver.Value) (string, error) {
+	switch v := arg.(type) {
+	case nil:
+		return "NULL", nil
+	case int64:
+		return strconv.FormatInt(v, 10), nil
+	case float64:
+		return strconv.FormatFloat(v, 'f', -1, 64), nil
+	case bool:
+		if v {
+			return "1", nil
+		}
+		return "0", nil
+	case []byte:
+		return base64.StdEncoding.EncodeToString(v), nil
+	case string:
+		return v, nil
+	case time.Time:
+		return v.Format(time.RFC3339), nil
+	default:
+		return "", fmt.Errorf("unsupported parameter type: %T", v)
+	}
 }
 
 // d1Driver implements database/sql/driver.Driver
@@ -75,7 +104,7 @@ func (c *d1Conn) Close() error {
 }
 
 func (c *d1Conn) Begin() (driver.Tx, error) {
-	return &d1DriverTx{conn: c}, nil
+	return nil, fmt.Errorf("D1 does not support transactions - use batch queries or accept eventual consistency")
 }
 
 // d1DriverStmt implements driver.Stmt
@@ -101,10 +130,14 @@ func (s *d1DriverStmt) Query(args []driver.Value) (driver.Rows, error) {
 }
 
 func (s *d1DriverStmt) execQuery(ctx context.Context, args []driver.Value) (driver.Result, error) {
-	// Convert args to strings
+	// Convert args to strings with type-safe marshaling
 	stringArgs := make([]string, len(args))
 	for i, arg := range args {
-		stringArgs[i] = fmt.Sprintf("%v", arg)
+		marshaled, err := marshalParam(arg)
+		if err != nil {
+			return nil, fmt.Errorf("marshal parameter %d: %w", i, err)
+		}
+		stringArgs[i] = marshaled
 	}
 
 	queryBody := d1.DatabaseQueryParamsBodyD1SingleQuery{
@@ -119,7 +152,7 @@ func (s *d1DriverStmt) execQuery(ctx context.Context, args []driver.Value) (driv
 
 	result, err := s.conn.client.D1.Database.Query(ctx, s.conn.databaseID, params)
 	if err != nil {
-		return nil, fmt.Errorf("D1 query failed: %w", err)
+		return nil, fmt.Errorf("D1 query failed [%s]: %w", s.sql, err)
 	}
 
 	rowsAffected := int64(0)
@@ -133,10 +166,14 @@ func (s *d1DriverStmt) execQuery(ctx context.Context, args []driver.Value) (driv
 }
 
 func (s *d1DriverStmt) queryRows(ctx context.Context, args []driver.Value) (driver.Rows, error) {
-	// Convert args to strings
+	// Convert args to strings with type-safe marshaling
 	stringArgs := make([]string, len(args))
 	for i, arg := range args {
-		stringArgs[i] = fmt.Sprintf("%v", arg)
+		marshaled, err := marshalParam(arg)
+		if err != nil {
+			return nil, fmt.Errorf("marshal parameter %d: %w", i, err)
+		}
+		stringArgs[i] = marshaled
 	}
 
 	queryBody := d1.DatabaseQueryParamsBodyD1SingleQuery{
@@ -151,7 +188,7 @@ func (s *d1DriverStmt) queryRows(ctx context.Context, args []driver.Value) (driv
 
 	result, err := s.conn.client.D1.Database.Query(ctx, s.conn.databaseID, params)
 	if err != nil {
-		return nil, fmt.Errorf("D1 query failed: %w", err)
+		return nil, fmt.Errorf("D1 query failed [%s]: %w", s.sql, err)
 	}
 
 	if len(result.Result) == 0 {
@@ -171,9 +208,14 @@ func (s *d1DriverStmt) queryRows(ctx context.Context, args []driver.Value) (driv
 		firstRow, ok := firstResult.Results[0].(map[string]interface{})
 		if ok {
 			// Get column names from first row
+			// Extract to slice first
+			cols := make([]string, 0, len(firstRow))
 			for col := range firstRow {
-				columns = append(columns, col)
+				cols = append(cols, col)
 			}
+			// Sort for stable ordering (map iteration order is undefined)
+			sort.Strings(cols)
+			columns = cols
 
 			// Extract all rows
 			for _, resultRow := range firstResult.Results {
@@ -203,7 +245,9 @@ type d1DriverResult struct {
 }
 
 func (r *d1DriverResult) LastInsertId() (int64, error) {
-	return 0, fmt.Errorf("D1 does not support LastInsertId")
+	// D1 API does not expose last insert ID in response metadata
+	// Workaround: use RETURNING clause in SQLite: INSERT ... RETURNING id
+	return 0, fmt.Errorf("D1 does not support LastInsertId - use INSERT ... RETURNING id instead")
 }
 
 func (r *d1DriverResult) RowsAffected() (int64, error) {
@@ -246,8 +290,10 @@ func (r *d1DriverRows) Next(dest []driver.Value) error {
 			}
 		} else if f, ok := val.(float64); ok {
 			// D1 may return numbers directly as float64
-			// Check if it's actually an integer value
-			if f == float64(int64(f)) {
+			// Check if it's actually an integer value within int64 range
+			const maxInt64Float = 9223372036854775807.0 // math.MaxInt64 as float64
+			const minInt64Float = -9223372036854775808.0 // math.MinInt64 as float64
+			if f >= minInt64Float && f <= maxInt64Float && f == float64(int64(f)) {
 				dest[i] = int64(f)
 			} else {
 				dest[i] = f
@@ -261,6 +307,8 @@ func (r *d1DriverRows) Next(dest []driver.Value) error {
 			case "false", "0":
 				dest[i] = int64(0)
 			default:
+				// Keep as string - this column is not a boolean type
+				// Returning error here would break string columns
 				dest[i] = val
 			}
 		} else {

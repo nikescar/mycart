@@ -128,12 +128,9 @@ func Install(c fiber.Ctx) error {
 
 // initializeCloudflareD1 sets up D1 database with migrations and admin user
 func initializeCloudflareD1(ctx context.Context, install *models.Install, log *logging.Log) (err error) {
-	fmt.Println("DEBUG: initializeCloudflareD1 called")
-
 	// Add panic recovery to catch and log the exact panic location
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("DEBUG: Panic recovered: %v\n", r)
 			if log != nil {
 				log.Error().Msgf("Panic in initializeCloudflareD1: %v", r)
 			}
@@ -141,25 +138,16 @@ func initializeCloudflareD1(ctx context.Context, install *models.Install, log *l
 		}
 	}()
 
-	fmt.Println("DEBUG: After defer setup")
-
 	if install == nil {
-		fmt.Println("DEBUG: install is nil!")
 		if log != nil {
 			log.Error().Msg("install parameter is nil")
 		}
 		return fmt.Errorf("install parameter is nil")
 	}
 
-	fmt.Println("DEBUG: install is not nil")
-
 	if log == nil {
-		fmt.Println("DEBUG: log is nil!")
 		return fmt.Errorf("log parameter is nil")
 	}
-
-	fmt.Println("DEBUG: log is not nil")
-	fmt.Printf("DEBUG: install.CFAccountID = %s\n", install.CFAccountID)
 
 	log.Info().Msg("Starting D1 initialization...")
 	log.Info().Msgf("D1 Config - AccountID: %s, DatabaseID: %s", install.CFAccountID, install.CFD1DatabaseID)
@@ -198,13 +186,10 @@ func initializeCloudflareD1(ctx context.Context, install *models.Install, log *l
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Printf("DEBUG: Panic in Install method: %v\n", r)
 				err = fmt.Errorf("panic in Install method: %v", r)
 			}
 		}()
-		fmt.Println("DEBUG: About to call dbInstance.Install")
 		err = dbInstance.Install(ctx, install)
-		fmt.Println("DEBUG: dbInstance.Install completed without panic")
 	}()
 
 	if err != nil {

@@ -1,6 +1,9 @@
 package models
 
 import (
+	"regexp"
+	"strings"
+
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
@@ -22,9 +25,51 @@ type Main struct {
 func (v Main) Validate() error {
 	return validation.ValidateStruct(&v,
 		validation.Field(&v.SiteName, validation.Required, validation.Length(1, 100)),
-		validation.Field(&v.Domain, is.Domain),
+		validation.Field(&v.Domain, validation.By(validateDomainOrLocalhost)),
 		validation.Field(&v.Email, is.Email),
 	)
+}
+
+// validateDomainOrLocalhost validates domain, localhost, or 127.0.0.1 (with optional port)
+func validateDomainOrLocalhost(value interface{}) error {
+	s, ok := value.(string)
+	if !ok {
+		return validation.NewError("validation_domain_invalid_type", "must be a string")
+	}
+
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil // Empty is allowed (optional field)
+	}
+
+	// Allow localhost (with or without port)
+	if strings.HasPrefix(s, "localhost") {
+		if s == "localhost" {
+			return nil
+		}
+		if strings.HasPrefix(s, "localhost:") {
+			return nil
+		}
+	}
+
+	// Allow only 127.0.0.1 (with or without port)
+	if strings.HasPrefix(s, "127.0.0.1") {
+		if s == "127.0.0.1" {
+			return nil
+		}
+		if strings.HasPrefix(s, "127.0.0.1:") {
+			return nil
+		}
+	}
+
+	// Allow regular domains (with or without port)
+	// Pattern: example.com or example.com:port
+	domainPattern := regexp.MustCompile(`^([a-z0-9]+(-[a-z0-9]+)*\.)+[a-z]{2,}(:\d+)?$`)
+	if domainPattern.MatchString(strings.ToLower(s)) {
+		return nil
+	}
+
+	return validation.NewError("validation_domain_invalid", "must be a valid domain, localhost, or 127.0.0.1")
 }
 
 // Auth is ...

@@ -84,6 +84,36 @@ func TestLoadDatabaseConfig(t *testing.T) {
 				require.Equal(t, "test-token", cfg.APIToken)
 			},
 		},
+		{
+			name: "DB_TYPE=d1 overrides local default",
+			envVars: map[string]string{
+				"DB_TYPE":                   "d1",
+				"CLOUDFLARE_ACCOUNT_ID":     "test-account",
+				"CLOUDFLARE_D1_DATABASE_ID": "test-db-id",
+				"CLOUDFLARE_API_TOKEN":      "test-token",
+			},
+			expectedType: "d1",
+			checkFields: func(t *testing.T, cfg DatabaseConfig) {
+				require.Equal(t, "d1", cfg.Type)
+				require.Equal(t, "test-account", cfg.AccountID)
+				require.Equal(t, "test-db-id", cfg.DatabaseID)
+				require.Equal(t, "test-token", cfg.APIToken)
+			},
+		},
+		{
+			name: "DB_TYPE=sqlite forces local mode even with cloudflare env",
+			envVars: map[string]string{
+				"DB_TYPE":                        "sqlite",
+				"CLOUDFLARE_APPLICATION_ID":      "true",
+				"CLOUDFLARE_ACCOUNT_ID":          "test-account",
+				"CLOUDFLARE_D1_DATABASE_ID":      "test-db-id",
+			},
+			expectedType: "sqlite",
+			checkFields: func(t *testing.T, cfg DatabaseConfig) {
+				require.Equal(t, "sqlite", cfg.Type)
+				require.NotEmpty(t, cfg.Path)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -145,6 +175,68 @@ func TestLoadStorageConfig(t *testing.T) {
 				require.Equal(t, "test-key", cfg.AccessKeyID)
 				require.Equal(t, "test-secret", cfg.SecretAccessKey)
 				require.Equal(t, "test-bucket", cfg.BucketName)
+			},
+		},
+		{
+			name: "STORAGE_TYPE=r2 overrides local default",
+			envVars: map[string]string{
+				"STORAGE_TYPE":                  "r2",
+				"CLOUDFLARE_ACCOUNT_ID":         "test-account",
+				"CLOUDFLARE_R2_ACCESS_KEY_ID":   "test-key",
+				"CLOUDFLARE_R2_SECRET_ACCESS_KEY": "test-secret",
+				"CLOUDFLARE_R2_BUCKET_NAME":     "test-bucket",
+			},
+			expectedType: "r2",
+			checkFields: func(t *testing.T, cfg StorageConfig) {
+				require.Equal(t, "r2", cfg.Type)
+				require.Equal(t, "test-account", cfg.AccountID)
+				require.Equal(t, "test-key", cfg.AccessKeyID)
+				require.Equal(t, "test-secret", cfg.SecretAccessKey)
+				require.Equal(t, "test-bucket", cfg.BucketName)
+			},
+		},
+		{
+			name: "STORAGE_TYPE=filesystem forces local mode even with cloudflare env",
+			envVars: map[string]string{
+				"STORAGE_TYPE":                  "filesystem",
+				"CLOUDFLARE_APPLICATION_ID":     "true",
+				"CLOUDFLARE_ACCOUNT_ID":         "test-account",
+			},
+			expectedType: "filesystem",
+			checkFields: func(t *testing.T, cfg StorageConfig) {
+				require.Equal(t, "filesystem", cfg.Type)
+				require.NotEmpty(t, cfg.BasePath)
+			},
+		},
+		{
+			name: "STORAGE_TYPE=r2 overrides local default",
+			envVars: map[string]string{
+				"STORAGE_TYPE":                  "r2",
+				"CLOUDFLARE_ACCOUNT_ID":         "test-account",
+				"CLOUDFLARE_R2_ACCESS_KEY_ID":   "test-key",
+				"CLOUDFLARE_R2_SECRET_ACCESS_KEY": "test-secret",
+				"CLOUDFLARE_R2_BUCKET_NAME":     "test-bucket",
+			},
+			expectedType: "r2",
+			checkFields: func(t *testing.T, cfg StorageConfig) {
+				require.Equal(t, "r2", cfg.Type)
+				require.Equal(t, "test-account", cfg.AccountID)
+				require.Equal(t, "test-key", cfg.AccessKeyID)
+				require.Equal(t, "test-secret", cfg.SecretAccessKey)
+				require.Equal(t, "test-bucket", cfg.BucketName)
+			},
+		},
+		{
+			name: "STORAGE_TYPE=filesystem forces local mode even with cloudflare env",
+			envVars: map[string]string{
+				"STORAGE_TYPE":                  "filesystem",
+				"CLOUDFLARE_APPLICATION_ID":     "true",
+				"CLOUDFLARE_ACCOUNT_ID":         "test-account",
+			},
+			expectedType: "filesystem",
+			checkFields: func(t *testing.T, cfg StorageConfig) {
+				require.Equal(t, "filesystem", cfg.Type)
+				require.NotEmpty(t, cfg.BasePath)
 			},
 		},
 	}

@@ -26,16 +26,40 @@ type Base struct {
 // It takes a database.Database interface and an embed.FS for migrations.
 // Migrations are run against the underlying *sql.DB for compatibility with goose.
 func New(database database.Database, migrations embed.FS) (err error) {
+	// Check database type to determine migration strategy
+	dbType := database.Type()
+
 	// Run migrations using the underlying *sql.DB
 	// This is needed because goose requires *sql.DB
 	underlyingDB := database.DB()
 	if underlyingDB != nil {
-		// For SQLite, run migrations directly
-		if err = base.MigrateDB(underlyingDB, migrations); err != nil {
-			return
+		if dbType == "d1" {
+			// For D1, use transaction-free migration approach
+			if err = base.MigrateD1(database, migrations); err != nil {
+				return
+			}
+		} else {
+			// For SQLite, run migrations with goose
+			if err = base.MigrateDB(underlyingDB, migrations); err != nil {
+				return
+			}
 		}
 	}
 
+	db = &Base{
+		AuthQueries:    AuthQueries{DB: database},
+		InstallQueries: InstallQueries{DB: database},
+		SettingQueries: SettingQueries{DB: database},
+		PageQueries:    PageQueries{DB: database},
+		ProductQueries: ProductQueries{DB: database},
+		CartQueries:    CartQueries{DB: database},
+	}
+	return
+}
+
+// NewWithoutMigrations initializes the application's database without running migrations.
+// Use this when the database schema is already up to date (e.g., D1 databases that don't support goose migrations).
+func NewWithoutMigrations(database database.Database) (err error) {
 	db = &Base{
 		AuthQueries:    AuthQueries{DB: database},
 		InstallQueries: InstallQueries{DB: database},

@@ -24,11 +24,23 @@ func IsCloudflare() bool {
 }
 
 // LoadDatabaseConfig loads database configuration based on environment
-// Local: SQLite
-// Cloudflare: D1
+// Priority: DB_TYPE env var > IsCloudflare() detection > default SQLite
 func LoadDatabaseConfig() DatabaseConfig {
-	if IsCloudflare() {
-		// Cloudflare D1 configuration
+	// 1. Check DB_TYPE env var first (explicit configuration)
+	dbType := os.Getenv("DB_TYPE")
+
+	// 2. Fall back to IsCloudflare() detection if not set
+	if dbType == "" && IsCloudflare() {
+		dbType = "d1"
+	}
+
+	// 3. Default to sqlite if still not set
+	if dbType == "" {
+		dbType = "sqlite"
+	}
+
+	// 4. Return appropriate config based on type
+	if dbType == "d1" {
 		return DatabaseConfig{
 			Type:       "d1",
 			AccountID:  os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
@@ -37,7 +49,7 @@ func LoadDatabaseConfig() DatabaseConfig {
 		}
 	}
 
-	// Local SQLite configuration
+	// Default SQLite configuration
 	path := os.Getenv("DB_PATH")
 	if path == "" {
 		path = "./lc_base/data.db"
@@ -50,11 +62,23 @@ func LoadDatabaseConfig() DatabaseConfig {
 }
 
 // LoadStorageConfig loads storage configuration based on environment
-// Local: Filesystem
-// Cloudflare: R2
+// Priority: STORAGE_TYPE env var > IsCloudflare() detection > default filesystem
 func LoadStorageConfig() StorageConfig {
-	if IsCloudflare() {
-		// Cloudflare R2 configuration
+	// 1. Check STORAGE_TYPE env var first (explicit configuration)
+	storageType := os.Getenv("STORAGE_TYPE")
+
+	// 2. Fall back to IsCloudflare() detection if not set
+	if storageType == "" && IsCloudflare() {
+		storageType = "r2"
+	}
+
+	// 3. Default to filesystem if still not set
+	if storageType == "" {
+		storageType = "filesystem"
+	}
+
+	// 4. Return appropriate config based on type
+	if storageType == "r2" {
 		return StorageConfig{
 			Type:            "r2",
 			AccountID:       os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
@@ -64,7 +88,7 @@ func LoadStorageConfig() StorageConfig {
 		}
 	}
 
-	// Local filesystem configuration
+	// Default filesystem configuration
 	basePath := os.Getenv("STORAGE_PATH")
 	if basePath == "" {
 		basePath = "./lc_uploads"

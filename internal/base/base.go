@@ -1,11 +1,17 @@
 package base
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
+	"io/fs"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/pressly/goose/v3"
+	"github.com/shurco/mycart/pkg/database"
 	"github.com/shurco/mycart/pkg/fsutil"
 )
 
@@ -69,4 +75,161 @@ func MigrateDB(db *sql.DB, migrations embed.FS) error {
 	goose.SetBaseFS(migrations)
 	goose.SetTableName("migrate_db_version")
 	return goose.Up(db, ".")
+}
+
+// MigrateD1 performs database migrations on D1 without using transactions
+// D1 doesn't support traditional SQL transactions, so we execute each statement individually
+func MigrateD1(db database.Database, migrations embed.FS) error {
+	ctx := context.Background()
+
+	// Create migration version table if it doesn't exist
+	_, err := db.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS migrate_db_version (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			version_id INTEGER NOT NULL,
+			is_applied INTEGER NOT NULL DEFAULT 1,
+			tstamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("create migration table: %w", err)
+	}
+
+	// Get applied migrations
+	appliedVersions := make(map[int64]bool)
+	rows, err := db.Query(ctx, `SELECT version_id FROM migrate_db_version WHERE is_applied = 1`)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var version int64
+			if err := rows.Scan(&version); err == nil {
+				appliedVersions[version] = true
+			}
+		}
+	}
+
+	// Read and sort migration files
+	var migrationFiles []string
+	err = fs.WalkDir(migrations, ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !d.IsDir() && filepath.Ext(path) == ".sql" {
+			migrationFiles = append(migrationFiles, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walk migrations: %w", err)
+	}
+	sort.Strings(migrationFiles)
+
+	// Execute migrations
+	for _, file := range migrationFiles {
+		// Parse version from filename (e.g., "20230714135923_init_db.sql" -> 20230714135923)
+		baseName := filepath.Base(file)
+		parts := strings.SplitN(baseName, "_", 2)
+		if len(parts) < 2 {
+			continue
+		}
+
+		var version int64
+		if _, err := fmt.Sscanf(parts[0], "%d", &version); err != nil {
+			continue
+		}
+
+		// Skip if already applied
+		if appliedVersions[version] {
+			continue
+		}
+
+		// Read migration SQL
+		sqlBytes, err := migrations.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", file, err)
+		}
+
+		// Parse and execute SQL statements
+		sqlContent := string(sqlBytes)
+		statements := parseSQLStatements(sqlContent)
+
+		for _, stmt := range statements {
+			if stmt = strings.TrimSpace(stmt); stmt == "" {
+				continue
+			}
+			_, err := db.Exec(ctx, stmt)
+			if err != nil {
+				return fmt.Errorf("exec migration %s statement: %s: %w", file, stmt[:50], err)
+			}
+		}
+
+		// Record migration as applied
+		_, err = db.Exec(ctx, `INSERT INTO migrate_db_version (version_id, is_applied) VALUES (?, 1)`, version)
+		if err != nil {
+			return fmt.Errorf("record migration %s: %w", file, err)
+		}
+	}
+
+	return nil
+}
+
+// parseSQLStatements splits SQL content into individual statements
+// Handles goose directives and comments
+// Only parses the UP section, stops at DOWN section
+func parseSQLStatements(sql string) []string {
+	var statements []string
+	var current strings.Builder
+	inGooseBlock := false
+	inUpSection := false
+
+	lines := strings.Split(sql, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Handle goose directives
+		if strings.HasPrefix(trimmed, "-- +goose") {
+			if strings.Contains(trimmed, "Up") {
+				inUpSection = true
+				continue
+			} else if strings.Contains(trimmed, "Down") {
+				// Stop processing when we hit the DOWN section
+				break
+			} else if strings.Contains(trimmed, "StatementBegin") {
+				inGooseBlock = true
+				continue
+			} else if strings.Contains(trimmed, "StatementEnd") {
+				inGooseBlock = false
+				continue
+			}
+		}
+
+		// Skip lines before UP section starts
+		if !inUpSection {
+			continue
+		}
+
+		// Skip comments
+		if strings.HasPrefix(trimmed, "--") && !inGooseBlock {
+			continue
+		}
+
+		current.WriteString(line)
+		current.WriteString("\n")
+
+		// Check for statement end (semicolon) - but only if not in goose block
+		if !inGooseBlock && strings.HasSuffix(trimmed, ";") {
+			stmt := current.String()
+			if strings.TrimSpace(stmt) != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+		}
+	}
+
+	// Add any remaining SQL (for goose StatementBegin/End blocks)
+	if stmt := current.String(); strings.TrimSpace(stmt) != "" {
+		statements = append(statements, stmt)
+	}
+
+	return statements
 }

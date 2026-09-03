@@ -2,7 +2,9 @@ package database
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 
 	_ "modernc.org/sqlite"
@@ -14,7 +16,17 @@ type sqliteDB struct {
 
 // NewSQLite creates a new SQLite database instance
 func NewSQLite(path string) (Database, error) {
-	db, err := sql.Open("sqlite", path)
+	// For :memory: databases, use a unique name with shared cache to ensure:
+	// 1. All connections from THIS db instance see the same schema (required for migrations)
+	// 2. Different db instances are isolated from each other (required for parallel tests)
+	dsn := path
+	if path == ":memory:" {
+		// Generate a unique name for this in-memory database
+		uniqueID := generateUniqueID()
+		dsn = fmt.Sprintf("file:mem-%s?mode=memory&cache=shared", uniqueID)
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
 	}
@@ -24,8 +36,25 @@ func NewSQLite(path string) (Database, error) {
 		return nil, fmt.Errorf("failed to ping SQLite database: %w", err)
 	}
 
+	// Enable foreign key constraints
+	// This is set per-connection, so we set it once on the initial connection
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+	}
+
 	return &sqliteDB{db: db}, nil
 }
+
+// generateUniqueID generates a unique identifier for in-memory databases
+func generateUniqueID() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback if random fails (shouldn't happen)
+		return "fallback"
+	}
+	return hex.EncodeToString(b)
+}
+
 
 func (s *sqliteDB) Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	return s.db.ExecContext(ctx, query, args...)

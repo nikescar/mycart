@@ -66,11 +66,7 @@ func (d *d1DB) Prepare(ctx context.Context, query string) (Stmt, error) {
 }
 
 func (d *d1DB) Begin(ctx context.Context) (Tx, error) {
-	tx, err := d.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	return &d1Tx{tx: tx}, nil
+	return nil, fmt.Errorf("D1 does not support transactions")
 }
 
 func (d *d1DB) Ping(ctx context.Context) error {

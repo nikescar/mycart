@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -172,7 +173,7 @@ func TestD1Performance(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		_, err := db.AddPage(ctx, &models.Page{
 			Name:     "Perf Test",
-			Slug:     "perf-test-" + time.Now().Format("20060102150405"),
+			Slug:     fmt.Sprintf("perf-test-%d-%d", time.Now().UnixNano(), i),
 			Position: "footer",
 		})
 		if err != nil {

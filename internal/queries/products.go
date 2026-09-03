@@ -65,7 +65,7 @@ func (q *ProductQueries) ListProducts(ctx context.Context, private bool, limit, 
 				product.name,
 				product.quantity,
 				product.slug,
-				(SELECT json_group_array(json_object('id', product_variant.id, 'sku', product_variant.sku, 'quantity', product_variant.quantity, 'price_surcharge', product_variant.price_surcharge, 'option_values', json(product_variant.option_values), 'active', CASE WHEN product_variant.active = 1 THEN 1 ELSE 0 END)) FROM product_variant WHERE product_id = product.id%s) as variants
+				(SELECT json_group_array(json_object('id', product_variant.id, 'sku', product_variant.sku, 'quantity', product_variant.quantity, 'price_surcharge', product_variant.price_surcharge, 'option_values', json(product_variant.option_values), 'active', IIF(product_variant.active = 1, json('true'), json('false')))) FROM product_variant WHERE product_id = product.id%s) as variants
 			FROM product
 		`, variantsFilter)
 

@@ -283,6 +283,39 @@ func InstallCheck(c fiber.Ctx) error {
 	install, _ := strconv.ParseBool(fmt.Sprint(response["installed"].Value))
 	path := c.Path()
 
+	// For Cloudflare deployments, also check if D1 is already installed
+	if !install && runtime.IsCloudflare() {
+		accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+		apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
+		d1DatabaseID := os.Getenv("CLOUDFLARE_D1_DATABASE_ID")
+
+		if accountID != "" && apiToken != "" && d1DatabaseID != "" {
+			// Check if D1 database is already initialized
+			dbConfig := database.Config{
+				Type:       "d1",
+				AccountID:  accountID,
+				DatabaseID: d1DatabaseID,
+				APIToken:   apiToken,
+			}
+
+			d1DB, err := database.New(dbConfig)
+			if err == nil {
+				var rawInstalled string
+				err = d1DB.QueryRow(ctx, `SELECT value FROM setting WHERE key = 'installed'`).Scan(&rawInstalled)
+				if err == nil {
+					d1Installed, _ := strconv.ParseBool(rawInstalled)
+					if d1Installed {
+						// D1 is already installed, redirect to signin
+						if strings.HasPrefix(path, "/_/install") {
+							return c.Redirect().To("/_/signin")
+						}
+						return c.Next()
+					}
+				}
+			}
+		}
+	}
+
 	if !install {
 		if !isInstallPath(path) {
 			if strings.HasPrefix(path, "/api/") {
@@ -291,7 +324,7 @@ func InstallCheck(c fiber.Ctx) error {
 			return c.Redirect().To("/_/install")
 		}
 	} else if strings.HasPrefix(path, "/_/install") {
-		return c.Redirect().To("/_")
+		return c.Redirect().To("/_/signin")
 	}
 
 	return c.Next()

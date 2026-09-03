@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -18,6 +20,15 @@ import (
 
 type installStatus struct {
 	Installed bool `json:"installed"`
+}
+
+type deploymentType struct {
+	Type           string `json:"type"` // "local" or "cloudflare"
+	CFAccountID    string `json:"cf_account_id,omitempty"`
+	CFAPIToken     string `json:"cf_api_token,omitempty"`
+	CFD1DatabaseID string `json:"cf_d1_database_id,omitempty"`
+	CFR2BucketName string `json:"cf_r2_bucket_name,omitempty"`
+	Installed      bool   `json:"installed"` // whether database is already installed
 }
 
 // InstallStatus reports whether first-time setup has been completed.
@@ -40,6 +51,73 @@ func InstallStatus(c fiber.Ctx) error {
 	}
 
 	return webutil.Response(c, fiber.StatusOK, "Installation status", installStatus{Installed: installed})
+}
+
+// DetectDeployment reports the current deployment configuration from .env
+//
+// @Summary      Detect deployment type
+// @Description  Returns deployment type (credentials not exposed for security)
+// @Tags         Install
+// @Produce      json
+// @Success      200 {object} webutil.HTTPResponse{result=deploymentType}
+// @Router       /api/install/detect [get]
+func DetectDeployment(c fiber.Ctx) error {
+	log := logging.New()
+	detection := deploymentType{
+		Type: "local",
+	}
+
+	// Check for Cloudflare credentials in environment
+	accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
+	d1DatabaseID := os.Getenv("CLOUDFLARE_D1_DATABASE_ID")
+
+	if accountID != "" && apiToken != "" {
+		detection.Type = "cloudflare"
+		// DO NOT expose credentials in API response for security
+		// detection.CFAccountID = accountID
+		// detection.CFAPIToken = apiToken
+		// detection.CFD1DatabaseID = d1DatabaseID
+		// detection.CFR2BucketName = os.Getenv("CLOUDFLARE_R2_BUCKET_NAME")
+
+		// If D1 database ID is configured, check if it's already installed
+		if d1DatabaseID != "" {
+			isInstalled, err := checkD1Installation(accountID, apiToken, d1DatabaseID)
+			if err != nil {
+				// Log error but don't block - user can still install
+				log.Warn().Err(err).Msg("Failed to check D1 installation status")
+			}
+			detection.Installed = isInstalled
+		}
+	}
+
+	return webutil.Response(c, fiber.StatusOK, "Deployment configuration", detection)
+}
+
+// checkD1Installation attempts to connect to D1 database and check if installed
+func checkD1Installation(accountID, apiToken, databaseID string) (bool, error) {
+	dbConfig := database.Config{
+		Type:       "d1",
+		AccountID:  accountID,
+		DatabaseID: databaseID,
+		APIToken:   apiToken,
+	}
+
+	db, err := database.New(dbConfig)
+	if err != nil {
+		return false, fmt.Errorf("connect to D1: %w", err)
+	}
+
+	// Try to query the setting table to check if installed
+	var rawInstalled string
+	err = db.QueryRow(context.Background(), `SELECT value FROM setting WHERE key = 'installed'`).Scan(&rawInstalled)
+	if err != nil {
+		// Table might not exist yet (not installed)
+		return false, nil
+	}
+
+	installed, _ := strconv.ParseBool(rawInstalled)
+	return installed, nil
 }
 
 // Install performs the initial installation of the application.
@@ -161,8 +239,9 @@ func initializeCloudflareD1(ctx context.Context, install *models.Install, log *l
 		return fmt.Errorf("database.New returned nil database")
 	}
 
-	log.Info().Msg("Running migrations...")
-	// Initialize queries with D1 database and run migrations
+	log.Info().Msg("Running D1 migrations (transaction-free)...")
+	// Initialize queries with D1 database
+	// The New function will detect D1 and use transaction-free migrations
 	if err := queries.New(db, migrations.Embed()); err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}

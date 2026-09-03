@@ -22,10 +22,10 @@ func ListD1Databases(c fiber.Ctx) error {
 	} else {
 		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-		apiToken = os.Getenv("CF_API_TOKEN")
+		apiToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 
 		if accountID == "" || apiToken == "" {
-			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment variables required")
 		}
 	}
 
@@ -65,10 +65,10 @@ func CreateD1Database(c fiber.Ctx) error {
 	} else {
 		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-		apiToken = os.Getenv("CF_API_TOKEN")
+		apiToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 
 		if accountID == "" || apiToken == "" {
-			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment variables required")
 		}
 	}
 
@@ -98,10 +98,10 @@ func ListR2Buckets(c fiber.Ctx) error {
 	} else {
 		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-		apiToken = os.Getenv("CF_API_TOKEN")
+		apiToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 
 		if accountID == "" || apiToken == "" {
-			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment variables required")
 		}
 	}
 
@@ -141,10 +141,10 @@ func CreateR2Bucket(c fiber.Ctx) error {
 	} else {
 		// Fall back to environment variables
 		accountID = os.Getenv("CF_ACCOUNT_ID")
-		apiToken = os.Getenv("CF_API_TOKEN")
+		apiToken = os.Getenv("CLOUDFLARE_API_TOKEN")
 
 		if accountID == "" || apiToken == "" {
-			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CF_API_TOKEN environment variables required")
+			return webutil.StatusBadRequest(c, "CF_ACCOUNT_ID and CLOUDFLARE_API_TOKEN environment variables required")
 		}
 	}
 

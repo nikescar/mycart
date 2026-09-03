@@ -290,7 +290,7 @@ func SystemInfo(c fiber.Ctx) error {
 
 	// Add D1 database ID if using Cloudflare D1
 	if info.DatabaseType == "d1" {
-		if dbID := os.Getenv("CF_D1_DATABASE_ID"); dbID != "" {
+		if dbID := os.Getenv("CLOUDFLARE_D1_DATABASE_ID"); dbID != "" {
 			info.DatabaseID = dbID
 		}
 	}

@@ -81,11 +81,11 @@ func GetD1AccountID() string {
 // GetD1DatabaseID returns the Cloudflare D1 database ID from environment
 func GetD1DatabaseID() string {
 	// Check test credentials first
-	if id := os.Getenv("CLOUDFLARE_TEST_DATABASE_ID"); id != "" {
+	if id := os.Getenv("CLOUDFLARE_TEST_D1_DATABASE_ID"); id != "" {
 		return id
 	}
 	// Production credentials
-	return os.Getenv("CLOUDFLARE_DATABASE_ID")
+	return os.Getenv("CLOUDFLARE_D1_DATABASE_ID")
 }
 
 // GetD1APIToken returns the Cloudflare API token from environment
@@ -96,4 +96,34 @@ func GetD1APIToken() string {
 	}
 	// Production credentials
 	return os.Getenv("CLOUDFLARE_API_TOKEN")
+}
+
+// GetR2BucketName returns the Cloudflare R2 bucket name from environment
+func GetR2BucketName() string {
+	// Check test credentials first
+	if name := os.Getenv("CLOUDFLARE_TEST_R2_BUCKET_NAME"); name != "" {
+		return name
+	}
+	// Production credentials
+	return os.Getenv("CLOUDFLARE_R2_BUCKET_NAME")
+}
+
+// GetR2AccessKeyID returns the Cloudflare R2 access key ID from environment
+func GetR2AccessKeyID() string {
+	// Check test credentials first
+	if key := os.Getenv("CLOUDFLARE_TEST_R2_ACCESS_KEY_ID"); key != "" {
+		return key
+	}
+	// Production credentials
+	return os.Getenv("CLOUDFLARE_R2_ACCESS_KEY_ID")
+}
+
+// GetR2SecretAccessKey returns the Cloudflare R2 secret access key from environment
+func GetR2SecretAccessKey() string {
+	// Check test credentials first
+	if secret := os.Getenv("CLOUDFLARE_TEST_R2_SECRET_ACCESS_KEY"); secret != "" {
+		return secret
+	}
+	// Production credentials
+	return os.Getenv("CLOUDFLARE_R2_SECRET_ACCESS_KEY")
 }

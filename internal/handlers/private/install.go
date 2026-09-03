@@ -104,21 +104,13 @@ func Install(c fiber.Ctx) error {
 	// Save Cloudflare credentials to .env if provided
 	if request.CFAccountID != "" {
 		envVars := map[string]string{
-			// D1 configuration (used by config.LoadDatabaseConfig)
-			"D1_ACCOUNT_ID":  request.CFAccountID,
-			"D1_API_TOKEN":   request.CFAPIToken,
-			"D1_DATABASE_ID": request.CFD1DatabaseID,
-			// R2 configuration (used by config.LoadStorageConfig)
-			"R2_ACCOUNT_ID":  request.CFAccountID,
-			"R2_BUCKET_NAME": request.CFR2BucketName,
-			// Keep CF_ prefixed versions for display/reference
-			"CF_ACCOUNT_ID":     request.CFAccountID,
-			"CF_API_TOKEN":      request.CFAPIToken,
-			"CF_D1_DATABASE_ID": request.CFD1DatabaseID,
-			"CF_R2_BUCKET_NAME": request.CFR2BucketName,
+			"CLOUDFLARE_ACCOUNT_ID":     request.CFAccountID,
+			"CLOUDFLARE_API_TOKEN":      request.CFAPIToken,
+			"CLOUDFLARE_D1_DATABASE_ID": request.CFD1DatabaseID,
+			"CLOUDFLARE_R2_BUCKET_NAME": request.CFR2BucketName,
 		}
 		if err := envfile.WriteEnv(envVars); err != nil {
-			log.Warn().Err(err).Msg("Failed to save CF credentials to .env")
+			log.Warn().Err(err).Msg("Failed to save Cloudflare credentials to .env")
 			// Continue anyway - user can set manually
 		}
 	}

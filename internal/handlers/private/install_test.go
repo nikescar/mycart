@@ -1,52 +1,43 @@
 package handlers
 
 import (
-	"database/sql"
-	"io/fs"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/pressly/goose/v3"
 
-	"github.com/shurco/mycart/internal/goosemigration/queries"
-	"github.com/shurco/mycart/internal/testutil"
 	"github.com/shurco/mycart/db/migrations"
-	_ "modernc.org/sqlite"
+	"github.com/shurco/mycart/internal/goosemigration/queries"
+	"github.com/shurco/mycart/internal/store"
+	"github.com/shurco/mycart/internal/store/db"
+	"github.com/shurco/mycart/internal/testutil"
 )
 
 func setupCleanDB(t *testing.T) (*fiber.App, func()) {
 	t.Helper()
 	dirCleanup := testutil.WithCmdTestDir(t)
 
-	sqlite, err := sql.Open("sqlite", ":memory:?_pragma=foreign_keys(ON)")
-	if err != nil {
-		t.Fatal(err)
-	}
-	sqlite.SetMaxOpenConns(1)
+	// Set up environment for SQLite
+	os.Setenv("DB_TYPE", "sqlite")
+	os.Setenv("SQLITE_PATH", ":memory:")
 
-	if err := goose.SetDialect("sqlite3"); err != nil {
-		t.Fatal(err)
-	}
-
-	// Extract sqlite subdirectory from embedded filesystem
-	migrationsSubFS, err := fs.Sub(migrations.Embed(), "sqlite")
-	if err != nil {
-		t.Fatalf("access sqlite migrations: %v", err)
-	}
-
-	goose.SetBaseFS(migrationsSubFS)
-	goose.SetTableName("migrate_db_version")
-	if err := goose.Up(sqlite, "."); err != nil {
+	// Initialize database with new pattern
+	if err := queries.New(migrations.Embed()); err != nil {
 		t.Fatal(err)
 	}
 
-	queries.NewFromDB(sqlite)
+	// Initialize store layer
+	if err := db.Init(queries.Adapter().DB(), "sqlite"); err != nil {
+		t.Fatal(err)
+	}
+	store.InitStore(queries.Adapter().DB())
+
 	app := fiber.New()
 
 	return app, func() {
 		_ = app.Shutdown()
-		_ = sqlite.Close()
+		queries.Close()
 		dirCleanup()
 	}
 }

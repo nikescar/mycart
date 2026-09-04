@@ -72,11 +72,11 @@ func loadCachedVersion(ctx context.Context) (*update.Version, error) {
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	if session == "" {
+	if !session.Value.Valid || session.Value.String == "" {
 		return nil, nil
 	}
 	v := &update.Version{}
-	if err := json.Unmarshal([]byte(session), v); err != nil {
+	if err := json.Unmarshal([]byte(session.Value.String), v); err != nil {
 		return nil, err
 	}
 	return v, nil

@@ -246,6 +246,9 @@ func (q *SettingQueries) GetSettingByGroup(ctx context.Context, settings any) (a
 			}
 		}
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return settings, nil
 }
@@ -375,6 +378,9 @@ func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (ma
 		setting := toModelSetting(result)
 		setting.Key = k
 		settings[k] = setting
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return settings, nil

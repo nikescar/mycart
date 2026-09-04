@@ -25,7 +25,7 @@ jobs:
     steps:
       # 1. Checkout code
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # 2. Setup environments
       - name: Setup Go Environment
@@ -34,7 +34,7 @@ jobs:
           go-version: '1.26'
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -90,7 +90,6 @@ jobs:
         run: |
           # Let Patchright manage server lifecycle via webServer config
           npx patchright test --reporter=html
-        continue-on-error: true
 
       # 7. Build VitePress documentation
       - name: Build VitePress Docs
@@ -166,15 +165,15 @@ jobs:
 
       # 9. Setup GitHub Pages
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       # 10. Upload artifact
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: './public'
 
       # 11. Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

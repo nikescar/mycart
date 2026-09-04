@@ -15,7 +15,7 @@ type Main struct {
 // Validate is ...
 func (v Main) Validate() error {
 	return validation.ValidateStruct(&v,
-		validation.Field(&v.SiteName, validation.Min(6)),
+		validation.Field(&v.SiteName, validation.Required, validation.Length(1, 100)),
 		validation.Field(&v.Domain, is.Domain),
 		validation.Field(&v.Email, is.Email),
 	)
@@ -371,8 +371,8 @@ func (v SMTP) Validate() error {
 		validation.Field(&v.Host, is.Host),
 		validation.Field(&v.Port, validation.Required, validation.Min(1), validation.Max(65535)),
 		// validation.Field(&v.Encryption),
-		validation.Field(&v.Username, validation.Length(3, 20)),
-		validation.Field(&v.Password, validation.Length(3, 20)),
+		validation.Field(&v.Username, validation.Length(3, 100)),
+		validation.Field(&v.Password, validation.Length(3, 100)),
 	)
 }
 

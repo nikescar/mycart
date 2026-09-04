@@ -52,23 +52,21 @@ func main() {
 		active := record[7] == "true"
 
 		product := &models.Product{
-			Core: models.Core{
-				ID: security.RandomString(),
-			},
+			Core:        models.Core{ID: security.RandomString()},
 			Name:        record[0],
 			Slug:        record[1],
 			Brief:       record[2],
-			Description: record[3],
+			Description:record[3],
 			Amount:      amount,
 			Quantity:    quantity,
 			SKU:         record[6],
 			Active:      active,
 			Metadata:    []models.Metadata{},
 			Attributes:  []string{"Sample", "Generated"},
-			Digital:     models.Digital{Type: ""},
+			Digital:     models.Digital{},
 		}
 
-		if _, err := db.AddProduct(ctx, product); err != nil {
+		if _, err := db.AddProductWithVariants(ctx, product); err != nil {
 			log.Printf("Failed to create product %s: %v", product.Name, err)
 			continue
 		}

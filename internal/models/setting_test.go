@@ -5,20 +5,22 @@ import (
 	"testing"
 )
 
-// Main.Validate applies validation.Min to SiteName, which is a string and
-// therefore always errors with "cannot convert string to int64". That is
-// clearly a pre-existing bug (Length/Required were likely intended) but
-// fixing it silently would change API semantics for existing installs, so
-// this test locks the current behaviour so any refactor is intentional.
-func TestMain_Validate_CurrentQuirk(t *testing.T) {
+// Main.Validate requires a non-empty site name (1..100 chars) and valid
+// domain/email. The historical `validation.Min(6)` on the string SiteName
+// always errored ("cannot convert string to int64"); it was replaced with an
+// explicit Length rule so group validation can run on every settings update.
+func TestMain_Validate(t *testing.T) {
 	t.Parallel()
-	err := (Main{SiteName: "MyShop1", Domain: "example.com", Email: "admin@example.com"}).Validate()
-	if err == nil {
-		t.Fatal("Main.Validate stopped returning the Min-on-string quirk: please update this test")
+	if err := (Main{SiteName: "MyShop1", Domain: "example.com", Email: "admin@example.com"}).Validate(); err != nil {
+		t.Fatalf("valid main rejected: %v", err)
+	}
+
+	if err := (Main{SiteName: "", Domain: "example.com", Email: "admin@example.com"}).Validate(); err == nil {
+		t.Error("empty site name must fail")
 	}
 
 	// Other validators (email/domain) still gate separately.
-	err = (Main{SiteName: "MyShop1", Domain: "not a host", Email: "admin@example.com"}).Validate()
+	err := (Main{SiteName: "MyShop1", Domain: "not a host", Email: "admin@example.com"}).Validate()
 	if err == nil {
 		t.Error("bad domain must fail")
 	}
@@ -208,17 +210,141 @@ func TestMail_Validate(t *testing.T) {
 
 func TestSMTP_Validate(t *testing.T) {
 	t.Parallel()
-	valid := SMTP{Host: "smtp.example.com", Port: 587, Username: "user", Password: "pass"}
-	if err := valid.Validate(); err != nil {
-		t.Errorf("valid smtp rejected: %v", err)
+
+	tests := []struct {
+		name      string
+		smtp      SMTP
+		wantError bool
+	}{
+		{
+			name: "valid smtp with short credentials",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "user",
+				Password: "pass",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid smtp with 3 char username (minimum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "abc",
+				Password: "password",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid smtp with 3 char password (minimum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "username",
+				Password: "abc",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid smtp with 50 char username",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: strings.Repeat("u", 50),
+				Password: "password",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid smtp with 100 char username (maximum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: strings.Repeat("u", 100),
+				Password: "password",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid smtp with 100 char password (maximum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "username",
+				Password: strings.Repeat("p", 100),
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid smtp with 2 char username (below minimum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "ab",
+				Password: "password",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid smtp with 2 char password (below minimum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "username",
+				Password: "ab",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid smtp with 101 char username (above maximum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: strings.Repeat("u", 101),
+				Password: "password",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid smtp with 101 char password (above maximum)",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     587,
+				Username: "username",
+				Password: strings.Repeat("p", 101),
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid smtp with bad host",
+			smtp: SMTP{
+				Host:     "not a host",
+				Port:     0,
+				Username: "user",
+				Password: "pass",
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid smtp with port above 65535",
+			smtp: SMTP{
+				Host:     "smtp.example.com",
+				Port:     70000,
+				Username: "user",
+				Password: "pass",
+			},
+			wantError: true,
+		},
 	}
-	bad := SMTP{Host: "not a host", Port: 0}
-	if err := bad.Validate(); err == nil {
-		t.Error("bad smtp must fail")
-	}
-	over := SMTP{Host: "smtp.example.com", Port: 70000}
-	if err := over.Validate(); err == nil {
-		t.Error("port >65535 must fail")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.smtp.Validate()
+			if (err != nil) != tt.wantError {
+				t.Errorf("SMTP.Validate() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
 	}
 }
 

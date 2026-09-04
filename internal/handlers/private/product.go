@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/disintegration/imaging"
 	"github.com/gofiber/fiber/v3"
 
+	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/internal/models"
 	"github.com/shurco/mycart/internal/store"
 	"github.com/shurco/mycart/pkg/csvimport"
@@ -427,6 +431,49 @@ func AddProductDigital(c fiber.Ctx) error {
 	}
 
 	return webutil.Response(c, fiber.StatusOK, "Digital added", data)
+}
+
+// DownloadProductDigital downloads a digital file for a product.
+//
+// @Summary      Download product digital file
+// @Description  Download a digital file associated with a product
+// @Tags         Products
+// @Security     BearerAuth
+// @Produce      octet-stream
+// @Param        product_id path string true "Product ID"
+// @Param        digital_id path string true "Digital file ID"
+// @Success      200 {file} binary "Digital file content"
+// @Failure      404 {object} webutil.HTTPResponse "File not found"
+// @Failure      500 {object} webutil.HTTPResponse "Internal server error"
+// @Router       /api/_/products/{product_id}/digital/{digital_id}/download [get]
+func DownloadProductDigital(c fiber.Ctx) error {
+	productID := c.Params("product_id")
+	fileID := c.Params("digital_id")
+	db := queries.DB()
+	log := logging.New()
+
+	file, err := db.DigitalFile(c.Context(), productID, fileID)
+	if err != nil {
+		if errors.Is(err, errors.ErrProductNotFound) {
+			return webutil.StatusNotFound(c)
+		}
+		log.ErrorStack(err)
+		return webutil.StatusInternalServerError(c)
+	}
+
+	filePath := filepath.Join(dirDigitals, file.Name+"."+file.Ext)
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		log.ErrorStack(err)
+		return webutil.StatusNotFound(c)
+	}
+
+	c.Set(fiber.HeaderContentType, "application/octet-stream")
+	c.Set(fiber.HeaderContentDisposition,
+		fmt.Sprintf(`attachment; filename="%s"`, file.OrigName))
+	c.Set(fiber.HeaderXContentTypeOptions, "nosniff")
+
+	return c.SendStream(bytes.NewReader(content))
 }
 
 // UpdateProductDigital updates digital content for a product.

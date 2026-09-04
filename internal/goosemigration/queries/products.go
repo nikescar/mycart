@@ -970,6 +970,26 @@ func (q *ProductQueries) ProductDigital(ctx context.Context, productID string) (
 	return digital, nil
 }
 
+// DigitalFile retrieves a single digital file by ID and product ID.
+func (q *ProductQueries) DigitalFile(ctx context.Context, productID, fileID string) (*models.File, error) {
+	file := &models.File{}
+	var query string
+	if DBType() == "postgres" {
+		query = `SELECT id, name, ext, orig_name FROM digital_file WHERE id = $1 AND product_id = $2`
+	} else {
+		query = `SELECT id, name, ext, orig_name FROM digital_file WHERE id = ? AND product_id = ?`
+	}
+	err := q.DB.QueryRowContext(ctx, query, fileID, productID).
+		Scan(&file.ID, &file.Name, &file.Ext, &file.OrigName)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.ErrProductNotFound
+		}
+		return nil, err
+	}
+	return file, nil
+}
+
 // AddDigitalFile associates a digital file with a product in the database.
 func (q *ProductQueries) AddDigitalFile(ctx context.Context, productID, fileUUID, fileExt, origName string) (*models.File, error) {
 	file := &models.File{

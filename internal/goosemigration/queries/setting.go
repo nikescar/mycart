@@ -379,9 +379,6 @@ func (q *SettingQueries) GetSettingByKey(ctx context.Context, key ...string) (ma
 		setting.Key = k
 		settings[k] = setting
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
 
 	return settings, nil
 }

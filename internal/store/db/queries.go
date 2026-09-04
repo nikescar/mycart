@@ -26,6 +26,13 @@ var (
 	CreatePageFunc    func(ctx context.Context, params CreatePageParams) (Page, error)
 	UpdatePageFunc    func(ctx context.Context, params UpdatePageParams) error
 	DeletePageFunc    func(ctx context.Context, id string) error
+
+	// Product operations
+	GetProductByIDFunc   func(ctx context.Context, id string) (Product, error)
+	GetProductBySlugFunc func(ctx context.Context, slug string) (Product, error)
+	CreateProductFunc    func(ctx context.Context, params CreateProductParams) (Product, error)
+	UpdateProductFunc    func(ctx context.Context, params UpdateProductParams) error
+	DeleteProductFunc    func(ctx context.Context, id string) error
 )
 
 // Additional function pointers can be added here as needed during migration

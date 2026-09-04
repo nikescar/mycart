@@ -224,3 +224,169 @@ func FromSQLitePageRow(p interface{}) Page {
 		return Page{}
 	}
 }
+
+// Product is the unified type for products
+type Product struct {
+	ID        string
+	Name      string
+	Desc      string
+	Slug      string
+	Amount    string
+	Metadata  []byte // json.RawMessage
+	Attribute []byte // json.RawMessage
+	Digital   sql.NullString
+	Active    bool
+	Deleted   bool
+	Created   sql.NullTime
+	Updated   sql.NullTime
+}
+
+// CreateProductParams for CreateProduct operation
+type CreateProductParams struct {
+	ID        string
+	Name      string
+	Desc      string
+	Slug      string
+	Amount    string
+	Metadata  []byte
+	Attribute []byte
+	Digital   sql.NullString
+	Active    bool
+}
+
+// UpdateProductParams for UpdateProduct operation
+type UpdateProductParams struct {
+	Name      string
+	Desc      string
+	Slug      string
+	Amount    string
+	Metadata  []byte
+	Attribute []byte
+	Digital   sql.NullString
+	Active    bool
+	ID        string
+}
+
+// FromPostgresProductRow converts postgres Row types to unified Product
+func FromPostgresProductRow(p interface{}) Product {
+	switch v := p.(type) {
+	case postgres.GetProductByIDRow:
+		return Product{
+			ID:        v.ID,
+			Name:      v.Name,
+			Desc:      v.Desc,
+			Slug:      v.Slug,
+			Amount:    v.Amount,
+			Metadata:  v.Metadata,
+			Attribute: v.Attribute,
+			Digital:   v.Digital,
+			Active:    v.Active,
+			Deleted:   v.Deleted,
+			Created:   v.Created,
+			Updated:   v.Updated,
+		}
+	case postgres.GetProductBySlugRow:
+		return Product{
+			ID:        v.ID,
+			Name:      v.Name,
+			Desc:      v.Desc,
+			Slug:      v.Slug,
+			Amount:    v.Amount,
+			Metadata:  v.Metadata,
+			Attribute: v.Attribute,
+			Digital:   v.Digital,
+			Active:    v.Active,
+			Deleted:   v.Deleted,
+			Created:   v.Created,
+			Updated:   v.Updated,
+		}
+	case postgres.CreateProductRow:
+		return Product{
+			ID:        v.ID,
+			Name:      v.Name,
+			Desc:      v.Desc,
+			Slug:      v.Slug,
+			Amount:    v.Amount,
+			Metadata:  v.Metadata,
+			Attribute: v.Attribute,
+			Digital:   v.Digital,
+			Active:    v.Active,
+			Deleted:   v.Deleted,
+			Created:   v.Created,
+			Updated:   v.Updated,
+		}
+	default:
+		return Product{}
+	}
+}
+
+// FromSQLiteProductRow converts sqlite Row types to unified Product
+func FromSQLiteProductRow(p interface{}) Product {
+	switch v := p.(type) {
+	case sqlite.GetProductByIDRow:
+		amount := ""
+		if v.Amount != nil {
+			if s, ok := v.Amount.(string); ok {
+				amount = s
+			}
+		}
+		return Product{
+			ID:        v.ID,
+			Name:      v.Name,
+			Desc:      v.Desc,
+			Slug:      v.Slug,
+			Amount:    amount,
+			Metadata:  v.Metadata,
+			Attribute: v.Attribute,
+			Digital:   v.Digital,
+			Active:    v.Active,
+			Deleted:   v.Deleted,
+			Created:   v.Created,
+			Updated:   v.Updated,
+		}
+	case sqlite.GetProductBySlugRow:
+		amount := ""
+		if v.Amount != nil {
+			if s, ok := v.Amount.(string); ok {
+				amount = s
+			}
+		}
+		return Product{
+			ID:        v.ID,
+			Name:      v.Name,
+			Desc:      v.Desc,
+			Slug:      v.Slug,
+			Amount:    amount,
+			Metadata:  v.Metadata,
+			Attribute: v.Attribute,
+			Digital:   v.Digital,
+			Active:    v.Active,
+			Deleted:   v.Deleted,
+			Created:   v.Created,
+			Updated:   v.Updated,
+		}
+	case sqlite.CreateProductRow:
+		amount := ""
+		if v.Amount != nil {
+			if s, ok := v.Amount.(string); ok {
+				amount = s
+			}
+		}
+		return Product{
+			ID:        v.ID,
+			Name:      v.Name,
+			Desc:      v.Desc,
+			Slug:      v.Slug,
+			Amount:    amount,
+			Metadata:  v.Metadata,
+			Attribute: v.Attribute,
+			Digital:   v.Digital,
+			Active:    v.Active,
+			Deleted:   v.Deleted,
+			Created:   v.Created,
+			Updated:   v.Updated,
+		}
+	default:
+		return Product{}
+	}
+}

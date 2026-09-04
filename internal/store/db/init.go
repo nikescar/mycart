@@ -168,6 +168,59 @@ func initPostgres(sqlDB *sql.DB) {
 	DeletePageFunc = func(ctx context.Context, id string) error {
 		return q.DeletePage(ctx, id)
 	}
+
+	// Product operations
+	GetProductByIDFunc = func(ctx context.Context, id string) (Product, error) {
+		pgProduct, err := q.GetProductByID(ctx, id)
+		if err != nil {
+			return Product{}, err
+		}
+		return FromPostgresProductRow(pgProduct), nil
+	}
+
+	GetProductBySlugFunc = func(ctx context.Context, slug string) (Product, error) {
+		pgProduct, err := q.GetProductBySlug(ctx, slug)
+		if err != nil {
+			return Product{}, err
+		}
+		return FromPostgresProductRow(pgProduct), nil
+	}
+
+	CreateProductFunc = func(ctx context.Context, params CreateProductParams) (Product, error) {
+		pgProduct, err := q.CreateProduct(ctx, postgres.CreateProductParams{
+			ID:        params.ID,
+			Name:      params.Name,
+			Desc:      params.Desc,
+			Slug:      params.Slug,
+			Amount:    params.Amount,
+			Metadata:  params.Metadata,
+			Attribute: params.Attribute,
+			Digital:   params.Digital,
+			Active:    params.Active,
+		})
+		if err != nil {
+			return Product{}, err
+		}
+		return FromPostgresProductRow(pgProduct), nil
+	}
+
+	UpdateProductFunc = func(ctx context.Context, params UpdateProductParams) error {
+		return q.UpdateProduct(ctx, postgres.UpdateProductParams{
+			Name:      params.Name,
+			Desc:      params.Desc,
+			Slug:      params.Slug,
+			Amount:    params.Amount,
+			Metadata:  params.Metadata,
+			Attribute: params.Attribute,
+			Digital:   params.Digital,
+			Active:    params.Active,
+			ID:        params.ID,
+		})
+	}
+
+	DeleteProductFunc = func(ctx context.Context, id string) error {
+		return q.DeleteProduct(ctx, id)
+	}
 }
 
 // initSQLite assigns SQLite sqlc implementations to function pointers
@@ -303,5 +356,58 @@ func initSQLite(sqlDB *sql.DB) {
 
 	DeletePageFunc = func(ctx context.Context, id string) error {
 		return q.DeletePage(ctx, id)
+	}
+
+	// Product operations
+	GetProductByIDFunc = func(ctx context.Context, id string) (Product, error) {
+		sqliteProduct, err := q.GetProductByID(ctx, id)
+		if err != nil {
+			return Product{}, err
+		}
+		return FromSQLiteProductRow(sqliteProduct), nil
+	}
+
+	GetProductBySlugFunc = func(ctx context.Context, slug string) (Product, error) {
+		sqliteProduct, err := q.GetProductBySlug(ctx, slug)
+		if err != nil {
+			return Product{}, err
+		}
+		return FromSQLiteProductRow(sqliteProduct), nil
+	}
+
+	CreateProductFunc = func(ctx context.Context, params CreateProductParams) (Product, error) {
+		sqliteProduct, err := q.CreateProduct(ctx, sqlite.CreateProductParams{
+			ID:        params.ID,
+			Name:      params.Name,
+			Desc:      params.Desc,
+			Slug:      params.Slug,
+			Amount:    params.Amount,
+			Metadata:  params.Metadata,
+			Attribute: params.Attribute,
+			Digital:   params.Digital,
+			Active:    params.Active,
+		})
+		if err != nil {
+			return Product{}, err
+		}
+		return FromSQLiteProductRow(sqliteProduct), nil
+	}
+
+	UpdateProductFunc = func(ctx context.Context, params UpdateProductParams) error {
+		return q.UpdateProduct(ctx, sqlite.UpdateProductParams{
+			Name:      params.Name,
+			Desc:      params.Desc,
+			Slug:      params.Slug,
+			Amount:    params.Amount,
+			Metadata:  params.Metadata,
+			Attribute: params.Attribute,
+			Digital:   params.Digital,
+			Active:    params.Active,
+			ID:        params.ID,
+		})
+	}
+
+	DeleteProductFunc = func(ctx context.Context, id string) error {
+		return q.DeleteProduct(ctx, id)
 	}
 }

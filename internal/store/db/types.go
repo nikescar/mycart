@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/shurco/mycart/internal/store/db/postgres"
 	"github.com/shurco/mycart/internal/store/db/sqlite"
@@ -320,22 +321,35 @@ func FromPostgresProductRow(p interface{}) Product {
 	}
 }
 
+// convertAmount converts SQLite's interface{} Amount to string
+func convertAmount(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	switch val := v.(type) {
+	case string:
+		return val
+	case []byte:
+		return string(val)
+	case int64:
+		return fmt.Sprintf("%d", val)
+	case float64:
+		return fmt.Sprintf("%.0f", val)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
 // FromSQLiteProductRow converts sqlite Row types to unified Product
 func FromSQLiteProductRow(p interface{}) Product {
 	switch v := p.(type) {
 	case sqlite.GetProductByIDRow:
-		amount := ""
-		if v.Amount != nil {
-			if s, ok := v.Amount.(string); ok {
-				amount = s
-			}
-		}
 		return Product{
 			ID:        v.ID,
 			Name:      v.Name,
 			Desc:      v.Desc,
 			Slug:      v.Slug,
-			Amount:    amount,
+			Amount:    convertAmount(v.Amount),
 			Metadata:  v.Metadata,
 			Attribute: v.Attribute,
 			Digital:   v.Digital,
@@ -345,18 +359,12 @@ func FromSQLiteProductRow(p interface{}) Product {
 			Updated:   v.Updated,
 		}
 	case sqlite.GetProductBySlugRow:
-		amount := ""
-		if v.Amount != nil {
-			if s, ok := v.Amount.(string); ok {
-				amount = s
-			}
-		}
 		return Product{
 			ID:        v.ID,
 			Name:      v.Name,
 			Desc:      v.Desc,
 			Slug:      v.Slug,
-			Amount:    amount,
+			Amount:    convertAmount(v.Amount),
 			Metadata:  v.Metadata,
 			Attribute: v.Attribute,
 			Digital:   v.Digital,
@@ -366,18 +374,12 @@ func FromSQLiteProductRow(p interface{}) Product {
 			Updated:   v.Updated,
 		}
 	case sqlite.CreateProductRow:
-		amount := ""
-		if v.Amount != nil {
-			if s, ok := v.Amount.(string); ok {
-				amount = s
-			}
-		}
 		return Product{
 			ID:        v.ID,
 			Name:      v.Name,
 			Desc:      v.Desc,
 			Slug:      v.Slug,
-			Amount:    amount,
+			Amount:    convertAmount(v.Amount),
 			Metadata:  v.Metadata,
 			Attribute: v.Attribute,
 			Digital:   v.Digital,

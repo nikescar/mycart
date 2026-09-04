@@ -5,6 +5,7 @@ import (
 
 	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/internal/models"
+	"github.com/shurco/mycart/internal/store/db"
 )
 
 // ListProducts retrieves a list of products with optional filtering.
@@ -90,4 +91,31 @@ func GenerateUniqueSlug(ctx context.Context, name, excludeID string) (string, er
 // ProductQueriesDB returns the underlying ProductQueries for CSV import operations.
 func ProductQueriesDB() *queries.ProductQueries {
 	return &queries.DB().ProductQueries
+}
+
+// --- sqlc-based methods (new implementation) ---
+
+// GetProductByID retrieves a product by ID using sqlc function pointer.
+func GetProductByID(ctx context.Context, id string) (db.Product, error) {
+	return db.GetProductByIDFunc(ctx, id)
+}
+
+// GetProductBySlug retrieves a product by slug using sqlc function pointer.
+func GetProductBySlug(ctx context.Context, slug string) (db.Product, error) {
+	return db.GetProductBySlugFunc(ctx, slug)
+}
+
+// CreateProduct creates a new product using sqlc function pointer.
+func CreateProduct(ctx context.Context, params db.CreateProductParams) (db.Product, error) {
+	return db.CreateProductFunc(ctx, params)
+}
+
+// UpdateProductSqlc updates a product using sqlc function pointer.
+func UpdateProductSqlc(ctx context.Context, params db.UpdateProductParams) error {
+	return db.UpdateProductFunc(ctx, params)
+}
+
+// DeleteProductSqlc deletes a product using sqlc function pointer.
+func DeleteProductSqlc(ctx context.Context, id string) error {
+	return db.DeleteProductFunc(ctx, id)
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/shurco/mycart/internal/goosemigration/queries"
 	"github.com/shurco/mycart/internal/models"
+	"github.com/shurco/mycart/internal/store/db"
 )
 
 // Page retrieves a page by slug for public access.
@@ -50,4 +51,31 @@ func UpdatePageActive(ctx context.Context, id string) error {
 // IsPage checks if a page exists by slug.
 func IsPage(ctx context.Context, slug string) bool {
 	return queries.DB().PageQueries.IsPage(ctx, slug)
+}
+
+// --- sqlc-based methods (new implementation) ---
+
+// GetPageBySlug retrieves a page by slug using sqlc function pointer.
+func GetPageBySlug(ctx context.Context, slug string) (db.Page, error) {
+	return db.GetPageBySlugFunc(ctx, slug)
+}
+
+// ListPagesSqlc retrieves a paginated list of pages using sqlc function pointer.
+func ListPagesSqlc(ctx context.Context, limit, offset int32) ([]db.Page, error) {
+	return db.ListPagesFunc(ctx, limit, offset)
+}
+
+// CreatePage creates a new page using sqlc function pointer.
+func CreatePage(ctx context.Context, params db.CreatePageParams) (db.Page, error) {
+	return db.CreatePageFunc(ctx, params)
+}
+
+// UpdatePageSqlc updates a page using sqlc function pointer.
+func UpdatePageSqlc(ctx context.Context, params db.UpdatePageParams) error {
+	return db.UpdatePageFunc(ctx, params)
+}
+
+// DeletePageSqlc deletes a page using sqlc function pointer.
+func DeletePageSqlc(ctx context.Context, id string) error {
+	return db.DeletePageFunc(ctx, id)
 }

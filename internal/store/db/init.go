@@ -141,10 +141,12 @@ func initPostgres(sqlDB *sql.DB) {
 
 	CreatePageFunc = func(ctx context.Context, params CreatePageParams) (Page, error) {
 		pgPage, err := q.CreatePage(ctx, postgres.CreatePageParams{
-			ID:      params.ID,
-			Slug:    params.Slug,
-			Content: params.Content,
-			Active:  params.Active,
+			ID:       params.ID,
+			Name:     params.Name,
+			Slug:     params.Slug,
+			Content:  params.Content,
+			Position: params.Position,
+			Active:   params.Active,
 		})
 		if err != nil {
 			return Page{}, err
@@ -154,10 +156,12 @@ func initPostgres(sqlDB *sql.DB) {
 
 	UpdatePageFunc = func(ctx context.Context, params UpdatePageParams) error {
 		return q.UpdatePage(ctx, postgres.UpdatePageParams{
-			Slug:    params.Slug,
-			Content: params.Content,
-			Active:  params.Active,
-			ID:      params.ID,
+			Name:     params.Name,
+			Slug:     params.Slug,
+			Content:  params.Content,
+			Position: params.Position,
+			Active:   params.Active,
+			ID:       params.ID,
 		})
 	}
 
@@ -273,10 +277,12 @@ func initSQLite(sqlDB *sql.DB) {
 
 	CreatePageFunc = func(ctx context.Context, params CreatePageParams) (Page, error) {
 		sqlitePage, err := q.CreatePage(ctx, sqlite.CreatePageParams{
-			ID:      params.ID,
-			Slug:    params.Slug,
-			Content: params.Content,
-			Active:  params.Active,
+			ID:       params.ID,
+			Name:     params.Name,
+			Slug:     params.Slug,
+			Content:  params.Content,
+			Position: params.Position,
+			Active:   params.Active,
 		})
 		if err != nil {
 			return Page{}, err
@@ -286,10 +292,12 @@ func initSQLite(sqlDB *sql.DB) {
 
 	UpdatePageFunc = func(ctx context.Context, params UpdatePageParams) error {
 		return q.UpdatePage(ctx, sqlite.UpdatePageParams{
-			Slug:    params.Slug,
-			Content: params.Content,
-			Active:  params.Active,
-			ID:      params.ID,
+			Name:     params.Name,
+			Slug:     params.Slug,
+			Content:  params.Content,
+			Position: params.Position,
+			Active:   params.Active,
+			ID:       params.ID,
 		})
 	}
 

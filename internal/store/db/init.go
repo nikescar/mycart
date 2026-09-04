@@ -114,6 +114,56 @@ func initPostgres(sqlDB *sql.DB) {
 		}
 		return q.UpdateSession(ctx, pgParams)
 	}
+
+	// Page operations
+	GetPageBySlugFunc = func(ctx context.Context, slug string) (Page, error) {
+		pgPage, err := q.GetPageBySlug(ctx, slug)
+		if err != nil {
+			return Page{}, err
+		}
+		return FromPostgresPageRow(pgPage), nil
+	}
+
+	ListPagesFunc = func(ctx context.Context, limit, offset int32) ([]Page, error) {
+		pgPages, err := q.ListPages(ctx, postgres.ListPagesParams{
+			Limit:  limit,
+			Offset: offset,
+		})
+		if err != nil {
+			return nil, err
+		}
+		pages := make([]Page, len(pgPages))
+		for i, p := range pgPages {
+			pages[i] = FromPostgresPageRow(p)
+		}
+		return pages, nil
+	}
+
+	CreatePageFunc = func(ctx context.Context, params CreatePageParams) (Page, error) {
+		pgPage, err := q.CreatePage(ctx, postgres.CreatePageParams{
+			ID:      params.ID,
+			Slug:    params.Slug,
+			Content: params.Content,
+			Active:  params.Active,
+		})
+		if err != nil {
+			return Page{}, err
+		}
+		return FromPostgresPageRow(pgPage), nil
+	}
+
+	UpdatePageFunc = func(ctx context.Context, params UpdatePageParams) error {
+		return q.UpdatePage(ctx, postgres.UpdatePageParams{
+			Slug:    params.Slug,
+			Content: params.Content,
+			Active:  params.Active,
+			ID:      params.ID,
+		})
+	}
+
+	DeletePageFunc = func(ctx context.Context, id string) error {
+		return q.DeletePage(ctx, id)
+	}
 }
 
 // initSQLite assigns SQLite sqlc implementations to function pointers
@@ -195,5 +245,55 @@ func initSQLite(sqlDB *sql.DB) {
 			Key:     arg.Key,
 		}
 		return q.UpdateSession(ctx, sqliteParams)
+	}
+
+	// Page operations
+	GetPageBySlugFunc = func(ctx context.Context, slug string) (Page, error) {
+		sqlitePage, err := q.GetPageBySlug(ctx, slug)
+		if err != nil {
+			return Page{}, err
+		}
+		return FromSQLitePageRow(sqlitePage), nil
+	}
+
+	ListPagesFunc = func(ctx context.Context, limit, offset int32) ([]Page, error) {
+		sqlitePages, err := q.ListPages(ctx, sqlite.ListPagesParams{
+			Limit:  int64(limit),
+			Offset: int64(offset),
+		})
+		if err != nil {
+			return nil, err
+		}
+		pages := make([]Page, len(sqlitePages))
+		for i, p := range sqlitePages {
+			pages[i] = FromSQLitePageRow(p)
+		}
+		return pages, nil
+	}
+
+	CreatePageFunc = func(ctx context.Context, params CreatePageParams) (Page, error) {
+		sqlitePage, err := q.CreatePage(ctx, sqlite.CreatePageParams{
+			ID:      params.ID,
+			Slug:    params.Slug,
+			Content: params.Content,
+			Active:  params.Active,
+		})
+		if err != nil {
+			return Page{}, err
+		}
+		return FromSQLitePageRow(sqlitePage), nil
+	}
+
+	UpdatePageFunc = func(ctx context.Context, params UpdatePageParams) error {
+		return q.UpdatePage(ctx, sqlite.UpdatePageParams{
+			Slug:    params.Slug,
+			Content: params.Content,
+			Active:  params.Active,
+			ID:      params.ID,
+		})
+	}
+
+	DeletePageFunc = func(ctx context.Context, id string) error {
+		return q.DeletePage(ctx, id)
 	}
 }

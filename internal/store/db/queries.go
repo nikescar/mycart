@@ -19,6 +19,13 @@ var (
 	CreateSessionFunc func(ctx context.Context, arg CreateSessionParams) error
 	UpdateSessionFunc func(ctx context.Context, arg UpdateSessionParams) error
 	DeleteSessionFunc func(ctx context.Context, key string) error
+
+	// Page operations
+	GetPageBySlugFunc func(ctx context.Context, slug string) (Page, error)
+	ListPagesFunc     func(ctx context.Context, limit, offset int32) ([]Page, error)
+	CreatePageFunc    func(ctx context.Context, params CreatePageParams) (Page, error)
+	UpdatePageFunc    func(ctx context.Context, params UpdatePageParams) error
+	DeletePageFunc    func(ctx context.Context, id string) error
 )
 
 // Additional function pointers can be added here as needed during migration

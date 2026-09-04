@@ -109,3 +109,118 @@ func FromSQLiteSession(s sqlite.Session) Session {
 		Expires: s.Expires,
 	}
 }
+
+// Page is the unified type for CMS pages
+type Page struct {
+	ID       string
+	Name     string
+	Slug     string
+	Content  sql.NullString
+	Position string
+	Active   bool
+	Created  sql.NullTime
+	Updated  sql.NullTime
+}
+
+// CreatePageParams for CreatePage operation
+type CreatePageParams struct {
+	ID       string
+	Name     string
+	Slug     string
+	Content  sql.NullString
+	Position string
+	Active   bool
+}
+
+// UpdatePageParams for UpdatePage operation
+type UpdatePageParams struct {
+	Name     string
+	Slug     string
+	Content  sql.NullString
+	Position string
+	Active   bool
+	ID       string
+}
+
+// FromPostgresPageRow converts postgres Row types to unified Page
+func FromPostgresPageRow(p interface{}) Page {
+	// Handle different row types from postgres queries
+	switch v := p.(type) {
+	case postgres.GetPageBySlugRow:
+		return Page{
+			ID:       v.ID,
+			Name:     v.Name,
+			Slug:     v.Slug,
+			Content:  v.Content,
+			Position: v.Position,
+			Active:   v.Active,
+			Created:  v.Created,
+			Updated:  v.Updated,
+		}
+	case postgres.ListPagesRow:
+		return Page{
+			ID:       v.ID,
+			Name:     v.Name,
+			Slug:     v.Slug,
+			Content:  v.Content,
+			Position: v.Position,
+			Active:   v.Active,
+			Created:  v.Created,
+			Updated:  v.Updated,
+		}
+	case postgres.CreatePageRow:
+		return Page{
+			ID:       v.ID,
+			Name:     v.Name,
+			Slug:     v.Slug,
+			Content:  v.Content,
+			Position: v.Position,
+			Active:   v.Active,
+			Created:  v.Created,
+			Updated:  v.Updated,
+		}
+	default:
+		return Page{}
+	}
+}
+
+// FromSQLitePageRow converts sqlite Row types to unified Page
+func FromSQLitePageRow(p interface{}) Page {
+	switch v := p.(type) {
+	case sqlite.GetPageBySlugRow:
+		return Page{
+			ID:       v.ID,
+			Name:     v.Name,
+			Slug:     v.Slug,
+			Content:  v.Content,
+			Position: v.Position,
+			Active:   v.Active,
+			Created:  v.Created,
+			Updated:  v.Updated,
+		}
+	case sqlite.ListPagesRow:
+		return Page{
+			ID:       v.ID,
+			Name:     v.Name,
+			Slug:     v.Slug,
+			Content:  v.Content,
+			Position: v.Position,
+			Active:   v.Active,
+			Created:  v.Created,
+			Updated:  v.Updated,
+		}
+	case sqlite.CreatePageRow:
+		return Page{
+			ID:       v.ID,
+			Name:     v.Name,
+			Slug:     v.Slug,
+			Content:  v.Content,
+			Position: v.Position,
+			Active:   v.Active,
+			Created:  v.Created,
+			Updated:  v.Updated,
+		}
+	default:
+		return Page{}
+	}
+}

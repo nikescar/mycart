@@ -348,7 +348,6 @@ func TestStartHTTP(t *testing.T) {
 				t.Fatal("server exited before we could test it")
 			default:
 				// Server is running, proceed with test
-				break
 			}
 			break
 		}
